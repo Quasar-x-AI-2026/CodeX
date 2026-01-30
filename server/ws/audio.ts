@@ -32,6 +32,11 @@ export function handle(ws: WebSocket, payload: unknown) {
                 
                 console.log(`\n--- RECEIVED TRANSCRIPT for ${sessionId} ---\n${transcript}\n----------------------------------\n`);
 
+                // Late-bind the API key in case process.env was loaded after relayService initialization
+                if ((relayService as any).geminiApiKey === "YOUR_GEMINI_API_KEY") {
+                    (relayService as any).geminiApiKey = process.env.GEMINI_API_KEY;
+                }
+
                 relayService.finalizeSession(sessionId, transcript).then((result) => {
                     if (result) {
                         console.log(`[Audio] Gemini summary generated for ${sessionId}`);

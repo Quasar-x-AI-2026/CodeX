@@ -1,13 +1,11 @@
+import "dotenv/config";
 import http from "http";
-import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
 import { createWebSocketServer } from "./ws/index";
 import { handleDisconnect } from "./sessions/cleanup";
 import type { Request, Response, NextFunction} from "express";
 import express from "express";
 import type { WebSocket } from "ws";
-
-dotenv.config();
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
@@ -30,10 +28,14 @@ export function startServer(port = PORT) {
   app.get("/", (req: Request, res: Response) => res.send("CodeX server running"));
   app.get("/health", (req: Request, res: Response) => res.status(200).json({ status: "ok" }));
 
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.includes("YOUR_GEMINI")) {
+    console.error("CRITICAL: GEMINI_API_KEY is not configured or still a placeholder.");
+  } else {
+    console.log("GEMINI_API_KEY detected.");
+  }
+
   const server = http.createServer(app);
-
   const wss = createWebSocketServer(server);
-
 
   interface SocketMessage {
     type: string;
@@ -46,9 +48,7 @@ export function startServer(port = PORT) {
 
   wss.on("connection", async (ws: WebSocket) => {
     const socketId = uuidv4();
-
     (ws as SocketWithId).id = socketId;
-
 
     try {
       const { register, unregister } = await import("./ws/registry");
@@ -74,7 +74,6 @@ export function startServer(port = PORT) {
         console.warn("websocket error for socket", socketId, err);
       });
     } catch (err) {
-
       console.warn("failed to register websocket", err);
     }
   });
@@ -86,7 +85,6 @@ export function startServer(port = PORT) {
   return server;
 }
 
-
-if (process.argv[1] && process.argv[1].endsWith("server.js") || require.main === module) {
+if (process.argv[1] && (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js")) || require.main === module) {
   startServer();
 }
