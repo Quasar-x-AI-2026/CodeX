@@ -19,7 +19,8 @@ CodeX is a high-performance, real-time virtual classroom and collaboration platf
 - **Build Tool**: Vite
 - **Styling**: Tailwind CSS & Shadcn UI
 - **State Management**: Zustand & React Query
-- **AI/CV**: MediaPipe Face Mesh
+- **AI/CV**: MediaPipe Face Mesh, Camera Utils, Drawing Utils and FOMM for avatar tracking, and integration with Google Gemini API
+- **Board Sharing**: Canvas API with ROI-based patching and YOLOv5 for object detection (future enhancement)
 - **Communication**: WebSockets (Signaling) & WebRTC (Audio)
 
 ### Backend (Server)
