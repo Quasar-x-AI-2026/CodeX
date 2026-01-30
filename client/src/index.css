@@ -1,19 +1,281 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* CodeX Design System - Calm, Premium Education Platform
+   Designed for low-bandwidth environments with maximum clarity */
+   
+
 @layer base {
-  body {
-    margin: 0;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-      "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-      sans-serif;
+  :root {
+    /* Background Colors - Warm off-whites */
+    --background: 45 20% 98%;
+    --foreground: 230 25% 18%;
+
+    /* Card surfaces - Slightly warmer than background */
+    --card: 45 25% 99%;
+    --card-foreground: 230 25% 18%;
+
+    /* Popover - Same as card for consistency */
+    --popover: 45 25% 99%;
+    --popover-foreground: 230 25% 18%;
+
+    /* Primary - Deep indigo for trust and education */
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 239 84% 60%;
+    --primary-muted: 239 40% 94%;
+
+    /* Secondary - Warm gray */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 230 25% 25%;
+
+    /* Muted - Subtle gray tones */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 46%;
+
+    /* Accent - Soft sage green for success/positive states */
+    --accent: 158 40% 92%;
+    --accent-foreground: 158 40% 30%;
+
+    /* Success - Calming green */
+    --success: 158 64% 42%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 158 40% 94%;
+
+    /* Warning - Warm amber */
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 20%;
+    --warning-muted: 38 40% 94%;
+
+    /* Destructive - Muted red */
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Connection states */
+    --connection-good: 158 64% 42%;
+    --connection-weak: 38 92% 50%;
+    --connection-poor: 0 65% 55%;
+
+    /* Border and input */
+    --border: 220 14% 90%;
+    --input: 220 14% 90%;
+    --ring: 239 84% 67%;
+
+    /* Border radius - Soft, friendly corners */
+    --radius: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
+
+    /* Shadows - Barely there, calm */
+    --shadow-sm: 0 1px 2px 0 hsl(230 25% 18% / 0.03);
+    --shadow: 0 1px 3px 0 hsl(230 25% 18% / 0.04), 0 1px 2px -1px hsl(230 25% 18% / 0.04);
+    --shadow-md: 0 4px 6px -1px hsl(230 25% 18% / 0.05), 0 2px 4px -2px hsl(230 25% 18% / 0.05);
+    --shadow-lg: 0 10px 15px -3px hsl(230 25% 18% / 0.05), 0 4px 6px -4px hsl(230 25% 18% / 0.05);
+    --shadow-card: 0 2px 8px -2px hsl(230 25% 18% / 0.06), 0 0 0 1px hsl(220 14% 90% / 0.5);
+
+    /* Sidebar */
+    --sidebar-background: 45 25% 97%;
+    --sidebar-foreground: 230 25% 25%;
+    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 94%;
+    --sidebar-accent-foreground: 230 25% 25%;
+    --sidebar-border: 220 14% 90%;
+    --sidebar-ring: 239 84% 67%;
   }
 
-  code {
-    font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
-      monospace;
+  .dark {
+    --background: 230 20% 10%;
+    --foreground: 45 20% 95%;
+
+    --card: 230 20% 12%;
+    --card-foreground: 45 20% 95%;
+
+    --popover: 230 20% 12%;
+    --popover-foreground: 45 20% 95%;
+
+    --primary: 239 84% 70%;
+    --primary-foreground: 230 20% 10%;
+    --primary-hover: 239 84% 75%;
+    --primary-muted: 239 30% 20%;
+
+    --secondary: 230 15% 18%;
+    --secondary-foreground: 45 20% 90%;
+
+    --muted: 230 15% 18%;
+    --muted-foreground: 220 10% 60%;
+
+    --accent: 158 30% 18%;
+    --accent-foreground: 158 40% 80%;
+
+    --success: 158 64% 50%;
+    --success-foreground: 230 20% 10%;
+    --success-muted: 158 30% 18%;
+
+    --warning: 38 80% 55%;
+    --warning-foreground: 38 80% 15%;
+    --warning-muted: 38 30% 18%;
+
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --connection-good: 158 64% 50%;
+    --connection-weak: 38 80% 55%;
+    --connection-poor: 0 60% 50%;
+
+    --border: 230 15% 20%;
+    --input: 230 15% 20%;
+    --ring: 239 84% 70%;
+
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.2);
+    --shadow: 0 1px 3px 0 hsl(0 0% 0% / 0.25), 0 1px 2px -1px hsl(0 0% 0% / 0.25);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.3), 0 2px 4px -2px hsl(0 0% 0% / 0.3);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.3), 0 4px 6px -4px hsl(0 0% 0% / 0.3);
+    --shadow-card: 0 2px 8px -2px hsl(0 0% 0% / 0.3), 0 0 0 1px hsl(230 15% 20% / 0.5);
+
+    --sidebar-background: 230 20% 8%;
+    --sidebar-foreground: 45 20% 90%;
+    --sidebar-primary: 239 84% 70%;
+    --sidebar-primary-foreground: 230 20% 10%;
+    --sidebar-accent: 230 15% 15%;
+    --sidebar-accent-foreground: 45 20% 90%;
+    --sidebar-border: 230 15% 18%;
+    --sidebar-ring: 239 84% 70%;
   }
-} 
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    line-height: 1.6;
+  }
+
+  /* Typography Scale - Optimized for readability */
+  h1 {
+    @apply text-3xl font-semibold tracking-tight;
+    line-height: 1.2;
+  }
+
+  h2 {
+    @apply text-2xl font-semibold tracking-tight;
+    line-height: 1.25;
+  }
+
+  h3 {
+    @apply text-xl font-medium;
+    line-height: 1.3;
+  }
+
+  h4 {
+    @apply text-lg font-medium;
+    line-height: 1.35;
+  }
+
+  p {
+    @apply text-base;
+    line-height: 1.6;
+  }
+}
+
+@layer components {
+  /* Card variants */
+  .card-elevated {
+    @apply bg-card rounded-xl border border-border;
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-interactive {
+    @apply card-elevated transition-all duration-200 cursor-pointer;
+  }
+
+  .card-interactive:hover {
+    box-shadow: var(--shadow-md);
+    @apply border-primary/20;
+  }
+
+  /* Connection indicator styles */
+  .connection-indicator {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium;
+  }
+
+  .connection-good {
+    @apply bg-success-muted text-success;
+  }
+
+  .connection-weak {
+    @apply bg-warning-muted text-warning-foreground;
+  }
+
+  .connection-poor {
+    @apply bg-destructive/10 text-destructive;
+  }
+
+  /* Calm loading animation */
+  @keyframes gentle-pulse {
+    0%, 100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  .loading-gentle {
+    animation: gentle-pulse 2s ease-in-out infinite;
+  }
+
+  /* Subtle fade in */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  /* Board area styling */
+  .board-area {
+    @apply bg-card rounded-xl border border-border overflow-hidden;
+    box-shadow: var(--shadow);
+  }
+
+  /* Avatar container */
+  .avatar-container {
+    @apply relative rounded-lg overflow-hidden bg-muted;
+    aspect-ratio: 4/3;
+  }
+}
+
+@layer utilities {
+  /* Text utilities for low-res screens */
+  .text-crisp {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Safe area for mobile */
+  .safe-area-inset {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
