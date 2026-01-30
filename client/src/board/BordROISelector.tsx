@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 export type NormalizedROI = { x: number; y: number; w: number; h: number };
 
 type Props = {
-  children: React.ReactNode; // camera preview goes here
+  children: React.ReactNode; 
   value?: NormalizedROI | null;
   onChange?: (roi: NormalizedROI | null) => void;
 };
@@ -110,7 +110,7 @@ export default function BoardROISelector({ children, value, onChange }: Props) {
   );
 }
 
-/* ---------- helpers ---------- */
+
 
 const rect = (x1: number, y1: number, x2: number, y2: number): NormalizedROI => ({
   x: Math.min(x1, x2),
@@ -119,10 +119,10 @@ const rect = (x1: number, y1: number, x2: number, y2: number): NormalizedROI => 
   h: Math.abs(y2 - y1),
 });
 
-const inside = (p: any, r: NormalizedROI) =>
+const inside = (p, r: NormalizedROI) =>
   p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h;
 
-const resize = (r: NormalizedROI, h: Handle, p: any): NormalizedROI => {
+const resize = (r: NormalizedROI, h: Handle, p): NormalizedROI => {
   const x2 = r.x + r.w;
   const y2 = r.y + r.h;
 
@@ -140,7 +140,6 @@ const boxStyle = (r: NormalizedROI) => ({
   height: `${r.h * 100}%`,
   border: "2px solid #007bff",
   background: "rgba(0,123,255,0.1)",
-  boxSizing: "border-box",
 });
 
 const handleStyle = (h: Handle) => ({

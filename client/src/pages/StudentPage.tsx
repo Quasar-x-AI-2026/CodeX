@@ -1,12 +1,35 @@
 import React from "react";
 import AvatarCanvas from "../avatar/AvatarCanvas";
+import { useEffect } from "react";
+import { sendMessage } from "../ws/socket";
+import useSession from "../state/session";
 
 type Props = {
   onLeave: () => void;
-  boardView?: React.ReactNode; // parent provides a board renderer or placeholder
+  boardView?: React.ReactNode; 
 };
 
 export default function StudentPage({ onLeave, boardView }: Props) {
+  const startSession = useSession((s) => s.startSession);
+
+  useEffect(() => {
+    const sid = window.prompt("Enter session ID to join");
+    if (!sid) {
+      onLeave();
+      return;
+    }
+
+    
+    try {
+      sendMessage({ type: "join", sessionId: sid, role: "student" });
+    } catch (e) {
+      console.warn("failed to send join", e);
+    }
+
+    startSession(sid);
+    
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">

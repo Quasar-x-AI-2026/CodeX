@@ -13,22 +13,22 @@
  */
 
 export type ControlPayload = {
-  headYaw: number; // -1 .. 1
-  headPitch: number; // -1 .. 1
-  mouthOpen: number; // 0 .. 1
-  eyeBlink: number; // 0 .. 1
+  headYaw: number; 
+  headPitch: number; 
+  mouthOpen: number; 
+  eyeBlink: number; 
 };
 
 export type AvatarPose = {
-  // Euler rotations in radians (pitch, yaw, roll)
+  
   rotation: { x: number; y: number; z: number };
-  // Morph target weights 0..1
+  
   morph: { mouthOpen: number; eyeBlink: number };
-  // timestamp ms
+  
   t: number;
 };
 
-// internal state
+
 let currentPose: AvatarPose = {
   rotation: { x: 0, y: 0, z: 0 },
   morph: { mouthOpen: 0, eyeBlink: 0 },
@@ -43,23 +43,23 @@ const subscribers = new Set<(p: AvatarPose) => void>();
 let rafId: number | null = null;
 let lastTick = performance.now();
 
-// interpolation speed (how quickly current approaches target) — in seconds
-const TIME_CONSTANT = 0.08; // lower => snappier
 
-// mapping ranges (degrees)
-const YAW_DEG = 30; // left/right
-const PITCH_DEG = 20; // up/down
+const TIME_CONSTANT = 0.08; 
+
+
+const YAW_DEG = 30; 
+const PITCH_DEG = 20; 
 
 function degToRad(d: number) {
   return (d * Math.PI) / 180;
 }
 
 function mapControlsToPose(c: ControlPayload, now = Date.now()): AvatarPose {
-  // headYaw: -1..1 => -YAW_DEG..YAW_DEG (y axis rotation)
+  
   const yaw = degToRad(c.headYaw * YAW_DEG);
-  // headPitch: -1..1 => -PITCH_DEG..PITCH_DEG (x axis rotation)
+  
   const pitch = degToRad(c.headPitch * PITCH_DEG);
-  // roll kept at 0 (no data)
+  
   const roll = 0;
 
   const mouthOpen = clamp01(c.mouthOpen);
@@ -89,7 +89,7 @@ export function updateControls(ctrl: ControlPayload) {
   const pose = mapControlsToPose(ctrl, now);
   targetPose = pose;
   lastValidPose = pose;
-  // ensure loop is running
+  
   ensureLoop();
 }
 
@@ -112,7 +112,7 @@ export function getLastValidPose(): AvatarPose | null {
  */
 export function subscribe(cb: (p: AvatarPose) => void) {
   subscribers.add(cb);
-  // invoke immediately with current pose
+  
   cb(currentPose);
   ensureLoop();
   return () => subscribers.delete(cb);
@@ -123,8 +123,8 @@ function notifySubscribers() {
     try {
       cb(currentPose);
     } catch (e) {
-      // swallow
-      // eslint-disable-next-line no-console
+      
+      
       console.warn("avatar controller subscriber error", e);
     }
   }
@@ -133,9 +133,9 @@ function notifySubscribers() {
 function step(dtSec: number) {
   if (!targetPose) return;
 
-  const alpha = 1 - Math.exp(-dtSec / TIME_CONSTANT); // exponential smoothing
+  const alpha = 1 - Math.exp(-dtSec / TIME_CONSTANT); 
 
-  // interpolate rotations component-wise
+  
   currentPose.rotation.x = lerp(currentPose.rotation.x, targetPose.rotation.x, alpha);
   currentPose.rotation.y = lerp(currentPose.rotation.y, targetPose.rotation.y, alpha);
   currentPose.rotation.z = lerp(currentPose.rotation.z, targetPose.rotation.z, alpha);
@@ -155,8 +155,8 @@ function tick() {
     step(dt);
     notifySubscribers();
   } else {
-    // no new targets; hold last pose
-    // but still notify once per second maybe? Keep silent to avoid noise
+    
+    
   }
 
   rafId = requestAnimationFrame(tick);

@@ -13,7 +13,7 @@ export type AvatarPayload = {
  * - onAvatar(cb): subscribe to incoming avatar payloads (latest-wins)
  */
 
-// Outgoing coalescing (latest-wins)
+
 let latestOutgoing: AvatarPayload | null = null;
 let outgoingScheduled = false;
 
@@ -21,18 +21,18 @@ export function sendAvatar(payload: AvatarPayload) {
   latestOutgoing = payload;
   if (outgoingScheduled) return;
   outgoingScheduled = true;
-  // schedule a single send on next animation frame to coalesce rapid updates
+  
   requestAnimationFrame(() => {
     outgoingScheduled = false;
     const toSend = latestOutgoing;
     latestOutgoing = null;
     if (!toSend) return;
-    // do not buffer if socket is closed - sendMessage will drop when disconnected
+    
     sendMessage({ type: "avatar", payload: toSend });
   });
 }
 
-// Incoming latest-wins delivery
+
 let latestIncoming: AvatarPayload | null = null;
 let incomingScheduled = false;
 const listeners = new Set<(p: AvatarPayload) => void>();
@@ -46,8 +46,8 @@ function deliverIncoming() {
     try {
       cb(p);
     } catch (e) {
-      // swallow listener errors
-      // eslint-disable-next-line no-console
+      
+      
       console.warn("avatar listener error", e);
     }
   }
@@ -56,11 +56,11 @@ function deliverIncoming() {
 addHandler("avatar", (msg: any) => {
   if (!msg || !msg.payload) return;
   const payload = msg.payload as AvatarPayload;
-  // overwrite latestIncoming; do not buffer older messages
+  
   latestIncoming = payload;
   if (!incomingScheduled) {
     incomingScheduled = true;
-    // schedule delivery on next animation frame
+    
     requestAnimationFrame(deliverIncoming);
   }
 });

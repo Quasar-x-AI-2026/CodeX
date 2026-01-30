@@ -159,7 +159,7 @@ export class TeacherAudioManager {
           for (const tr of transceivers) {
             if (tr.receiver && tr.receiver.track && tr.receiver.track.kind === "audio") continue;
             
-            if (typeof (tr as any).setCodecPreferences === "function") (tr as any).setCodecPreferences(opusCodecs);
+            if (typeof (tr ).setCodecPreferences === "function") (tr ).setCodecPreferences(opusCodecs);
           }
         } catch (e) {
           this.log("setCodecPreferences failed", e);
@@ -326,7 +326,7 @@ export class StudentAudioManager {
       if (opusCodecs.length > 0) {
         try {
           const transceiver = pc.addTransceiver("audio", { direction: "recvonly" });
-          if (typeof (transceiver as any).setCodecPreferences === "function") (transceiver as any).setCodecPreferences(opusCodecs);
+          if (typeof (transceiver ).setCodecPreferences === "function") (transceiver ).setCodecPreferences(opusCodecs);
         } catch (e) {
           this.log("setCodecPreferences failed on recv", e);
         }
@@ -407,7 +407,7 @@ function createPeerConnection() {
     peerConnection = new RTCPeerConnection({ iceServers: DEFAULT_STUN });
 
     peerConnection.onicecandidate = (event) => {
-        if (event.candidate) { /* empty */ }
+        if (event.candidate) {  }
     };
 
     peerConnection.ontrack = (event) => {

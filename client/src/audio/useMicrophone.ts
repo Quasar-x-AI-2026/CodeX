@@ -23,25 +23,25 @@ export default function useMicrophone(): UseMicrophoneReturn {
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
-  // Keep a ref to the stream so stop() can access the latest stream synchronously
+  
   const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      // Ensure we stop and release on unmount
+      
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
     };
-    // We intentionally do not include streamRef or stream in deps; cleanup runs on unmount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
+    
   }, []);
 
   const start = useCallback(async (): Promise<void> => {
-    // If we already have a stream, do nothing
+    
     if (streamRef.current) {
       return;
     }
@@ -54,7 +54,7 @@ export default function useMicrophone(): UseMicrophoneReturn {
     try {
       const s = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (!mountedRef.current) {
-        // If unmounted while awaiting permission, stop the obtained tracks immediately
+        
         s.getTracks().forEach((t) => t.stop());
         return;
       }
@@ -63,13 +63,13 @@ export default function useMicrophone(): UseMicrophoneReturn {
       setStream(s);
       setError(null);
     } catch (err: unknown) {
-      // Handle permission and device errors gracefully
+      
       let msg = "Failed to access microphone";
 
-      // DOMException for permission denied or device not found
+      
       if (err instanceof Error) {
-        // Some browsers set the name to 'NotAllowedError', 'PermissionDeniedError', 'NotFoundError'
-        // Use the name property when available
+        
+        
         const name = (err).name;
         if (name === "NotAllowedError" || name === "PermissionDeniedError") {
           msg = "Microphone permission denied";
@@ -92,7 +92,7 @@ export default function useMicrophone(): UseMicrophoneReturn {
       streamRef.current = null;
       setStream(null);
     }
-    // Do not clear error here; stopping is a normal operation
+    
   }, []);
 
   return { stream, start, stop, error };

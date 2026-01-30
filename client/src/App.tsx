@@ -3,6 +3,7 @@ import LandingPage from './pages/LandingPage';
 import TeacherPage from './pages/TeacherPage';
 import StudentPage from './pages/StudentPage';
 import React, { useRef, useState } from 'react';
+import BoardViewer from './board/BoardViewer';
 import useRole from './state/role';
 import useSession from './state/session';
 import { startBoardCapture } from './board/BoardCapture';
@@ -24,7 +25,11 @@ function RouterChildren() {
   const boardPreviewRef = useRef<HTMLDivElement | null>(null);
 
   async function handleTeacherStart() {
-    // Start board capture (will throw if camera access fails)
+    
+    const generateSessionId = () => Math.random().toString(36).slice(2, 8);
+    const sid = generateSessionId();
+
+    
     const ctrl = await startBoardCapture({
       roi: roi ?? undefined,
       onPatch: (p) => sendPatch(p),
@@ -34,25 +39,38 @@ function RouterChildren() {
     });
 
     boardCtrlRef.current = ctrl;
-    // ensure controller uses the latest ROI
-    try { boardCtrlRef.current.setROI(roi ?? null); } catch (e) { /* ignore */ }
+    
+    try { boardCtrlRef.current.setROI(roi ?? null); } catch (e) { 
+      console.warn('setROI failed', e);
+     }
 
-    // Start face tracking (will throw on failure) and mount preview into teacher page
+    
     try {
       await startTracking((payload) => sendAvatar(payload), { previewContainer: avatarPreviewRef.current });
     } catch (e) {
-      // cleanup board capture if tracking fails
-      try { if (boardCtrlRef.current) boardCtrlRef.current.stop(); } catch (ex) { /* ignore */ }
+      
+      try { if (boardCtrlRef.current) boardCtrlRef.current.stop(); } catch (ex) { 
+        console.warn('stop board controller failed', ex);
+       }
       boardCtrlRef.current = null;
-      throw e; // bubble up so UI can show an error
+      throw e; 
     }
 
-    // Only mark session started after subsystems are running
-    startSession();
+    
+    try {
+      
+      const { sendMessage } = await import('./ws/socket');
+      sendMessage({ type: 'join', sessionId: sid, role: 'teacher' });
+    } catch (e) {
+      console.warn('failed to send join message', e);
+    }
+
+    
+    startSession(sid);
   }
 
   async function handleTeacherStop() {
-    // stop board capture
+    
     try {
       if (boardCtrlRef.current) {
         try { boardCtrlRef.current.stop(); } catch (e) { console.warn('stop board controller failed', e); }
@@ -62,7 +80,7 @@ function RouterChildren() {
       console.warn('stop board controller failed', e);
     }
 
-    // stop face tracking
+    
     try { stopTracking(); } catch (e) { console.warn('stopTracking failed', e); }
     endSession();
     navigate('/');
@@ -78,7 +96,7 @@ function RouterChildren() {
       try {
         boardCtrlRef.current.setROI(roi ?? null);
       } catch (e) {
-        // ignore
+        console.warn('setROI failed', e);
       }
     }
   }, [roi]);
@@ -86,8 +104,8 @@ function RouterChildren() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage onSelectRole={setRole} />} />
-      <Route path="/teacher" element={<TeacherPage avatarPreviewRef={avatarPreviewRef} boardPreviewRef={boardPreviewRef} isRunning={started} onStart={handleTeacherStart} onStop={handleTeacherStop} onROIChange={setRoi} initialROI={roi} />} />
-      <Route path="/student" element={<StudentPage onLeave={handleStudentLeave} />} />
+      <Route path="/teacher" element={<TeacherPage avatarPreviewRef={avatarPreviewRef} boardPreviewRef={boardPreviewRef} isRunning={started} onStart={handleTeacherStart} onStop={handleTeacherStop} onROIChange={setRoi} initialROI={roi} sessionId={useSession(state => state.sessionId)} />} />
+      <Route path="/student" element={<StudentPage onLeave={handleStudentLeave} boardView={<BoardViewer />} />} />
     </Routes>
   );
 }

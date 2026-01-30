@@ -11,11 +11,11 @@ export interface RoleState {
 const useRole = create<RoleState>((set) => ({
   role: "student",
   setRole: (role: Role) => {
-    // Prevent changing role after a session has started - immutable requirement
+    
     const session = useSession.getState();
     if (session.started) {
-      // keep previous role; do not throw
-      // eslint-disable-next-line no-console
+      
+      
       console.warn("Attempted to change role after session start - ignored");
       return;
     }

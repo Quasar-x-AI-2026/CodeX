@@ -6,15 +6,15 @@ export interface SessionState {
   sessionId: string | null;
   phase: SessionPhase;
   error: string | null;
-  /** convenience boolean kept for compatibility */
+  
   started: boolean;
 
-  // lifecycle actions
-  startConnecting: (sessionId?: string) => void; // transitions to connecting
-  startSession: (sessionId?: string) => void; // transitions to active
-  endSession: () => void; // transitions to ended
-  setError: (message: string) => void; // transitions to error
-  reset: () => void; // transitions to idle and clears session
+  
+  startConnecting: (sessionId?: string) => void; 
+  startSession: (sessionId?: string) => void; 
+  endSession: () => void; 
+  setError: (message: string) => void; 
+  reset: () => void; 
 }
 
 const useSession = create<SessionState>((set) => ({

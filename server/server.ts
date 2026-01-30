@@ -14,6 +14,20 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 export function startServer(port = PORT) {
   const app = express();
 
+  // Dev diagnostic: log header sizes when 431 occurs (helps troubleshoot large header issues)
+  app.use((req, res, next) => {
+    try {
+      const sizes: Record<string, number> = {};
+      for (const [k, v] of Object.entries(req.headers)) sizes[k] = v ? String(v).length : 0;
+      // Only print when some header looks large (heuristic)
+      const large = Object.entries(sizes).find(([_, len]) => len > 2000);
+      if (large) console.warn("Large header detected", large, sizes);
+    } catch (e) {
+      // ignore
+    }
+    next();
+  });
+
   app.get("/", (req: Request, res: Response) => res.send("CodeX server running"));
   app.get("/health", (req: Request, res: Response) => res.status(200).json({ status: "ok" }));
 

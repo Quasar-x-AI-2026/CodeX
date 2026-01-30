@@ -27,30 +27,30 @@ export default function useStudentAudio(send: SendSignal, sessionId?: string, de
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Create manager with onRemoteTrack callback
+    
     managerRef.current = new StudentAudioManager({
       send,
       sessionId: sessionId ?? "",
       onRemoteTrack: (stream: MediaStream) => {
         const el = audioElRef.current;
         if (!el) return;
-        // Attach stream
+        
         try {
           el.srcObject = stream;
         } catch (e) {
-          // ignore
+          
         }
 
-        // Attempt to autoplay; if blocked, we do not throw, just record state
+        
         const playPromise = el.play();
-        if (playPromise && typeof (playPromise as any).then === "function") {
+        if (playPromise && typeof (playPromise ).then === "function") {
           (playPromise as Promise<void>)
             .then(() => {
               setIsPlaying(true);
               setError(null);
             })
             .catch((err) => {
-              // Autoplay blocked or playback error; remain silent
+              
               setIsPlaying(false);
               setError("Autoplay blocked or playback failed");
               if (debug) debug("audio play failed", err);
@@ -74,7 +74,7 @@ export default function useStudentAudio(send: SendSignal, sessionId?: string, de
       }
       setIsPlaying(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [send, sessionId]);
 
   const attachAudioElement = useCallback((el: HTMLAudioElement | null) => {
@@ -84,10 +84,10 @@ export default function useStudentAudio(send: SendSignal, sessionId?: string, de
 
     if (!el) return;
 
-    // If there's already a stream attached by the manager, try to play
+    
     if (el.srcObject) {
       const playP = el.play();
-      if (playP && typeof (playP as any).then === "function") {
+      if (playP && typeof (playP ).then === "function") {
         (playP as Promise<void>)
           .then(() => setIsPlaying(true))
           .catch((err) => {
@@ -111,7 +111,7 @@ export default function useStudentAudio(send: SendSignal, sessionId?: string, de
         await managerRef.current.handleIce(msg.targetSocketId, msg.candidate);
       }
     } catch (e) {
-      // Silence is preferable on errors
+      
       if (debug) debug("handleSignalingMessage error", e);
     }
   }, [debug]);

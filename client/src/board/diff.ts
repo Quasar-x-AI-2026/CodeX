@@ -18,11 +18,11 @@
 export type DiffBox = { x: number; y: number; width: number; height: number };
 
 export type DiffOptions = {
-  /** per-pixel threshold (0-255). A pixel is considered changed if max(|r|,|g|,|b|) > threshold */
+  
   threshold?: number;
-  /** minimum region area (in pixels) to keep */
+  
   minArea?: number;
-  /** distance (px) to expand boxes before merging nearby boxes */
+  
   mergeDistance?: number;
 };
 
@@ -38,12 +38,12 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
   const w = prev.width;
   const h = prev.height;
   const n = w * h;
-  const mask = new Uint8Array(n); // 0/1 mask of changed pixels
+  const mask = new Uint8Array(n); 
 
   const p = prev.data;
   const q = next.data;
 
-  // compute mask
+  
   for (let i = 0, px = 0; px < n; px++, i += 4) {
     const dr = Math.abs(p[i] - q[i]);
     const dg = Math.abs(p[i + 1] - q[i + 1]);
@@ -52,7 +52,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
     if (diff > threshold) mask[px] = 1;
   }
 
-  // connected components (4-neighbor) to find bounding boxes
+  
   const visited = new Uint8Array(n);
   const boxes: DiffBox[] = [];
 
@@ -61,7 +61,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
       if (mask[idx] && !visited[idx]) {
-        // flood fill
+        
         let minX = x;
         let maxX = x;
         let minY = y;
@@ -81,7 +81,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
           if (cy < minY) minY = cy;
           if (cy > maxY) maxY = cy;
 
-          // neighbors (4-connected)
+          
           const up = cur - w;
           const down = cur + w;
           const left = cur - 1;
@@ -114,7 +114,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
 
   if (boxes.length === 0) return [];
 
-  // expand boxes by mergeDistance
+  
   const expanded = boxes.map((b) => ({
     x: Math.max(0, b.x - mergeDistance),
     y: Math.max(0, b.y - mergeDistance),
@@ -122,7 +122,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
     height: Math.min(h - 1, b.y + b.height - 1 + mergeDistance) - Math.max(0, b.y - mergeDistance) + 1,
   }));
 
-  // merge overlapping boxes
+  
   const merged: DiffBox[] = [];
   const taken = new Array(expanded.length).fill(false);
 
@@ -145,7 +145,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
     merged.push(a);
   }
 
-  // shrink merged boxes back by mergeDistance to approximate original regions bounds
+  
   const finalBoxes = merged.map((b) => shrinkBox(b, mergeDistance, w, h));
 
   return finalBoxes;

@@ -33,16 +33,16 @@ export default function useTeacherAudio(send: SendSignal, sessionId?: string, de
   const managerRef = useRef<TeacherAudioManager | null>(null);
   const [isActive, setIsActive] = useState(false);
 
-  // Create manager once
+  
   useEffect(() => {
     const getLocalStream = async () => {
-      // Ensure microphone is started and return stream
+      
       try {
         await mic.start();
       } catch (e) {
-        // start may fail (permission) — swallow; caller can check mic.error
+        
       }
-      // Always return current stream (may be null) — TeacherAudioManager handles missing stream
+      
       return mic.stream as MediaStream;
     };
 
@@ -53,9 +53,9 @@ export default function useTeacherAudio(send: SendSignal, sessionId?: string, de
         managerRef.current.close().catch(() => {});
         managerRef.current = null;
       }
-      // Do not stop microphone here; leave lifecycle to caller
+      
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [send, sessionId]);
 
   const start = useCallback(async () => {
@@ -63,7 +63,7 @@ export default function useTeacherAudio(send: SendSignal, sessionId?: string, de
       await mic.start();
       setIsActive(true);
     } catch (e) {
-      // permission denied or failure -> mic.error will reflect state
+      
       setIsActive(false);
     }
   }, [mic]);
@@ -72,10 +72,10 @@ export default function useTeacherAudio(send: SendSignal, sessionId?: string, de
     try {
       mic.stop();
     } catch (e) {
-      // ignore
+      
     }
     setIsActive(false);
-    // close all peer connections to stop sending audio
+    
     if (managerRef.current) managerRef.current.close().catch(() => {});
   }, [mic]);
 
@@ -84,7 +84,7 @@ export default function useTeacherAudio(send: SendSignal, sessionId?: string, de
     try {
       await managerRef.current.addStudent(targetSocketId);
     } catch (e) {
-      // silence on failures
+      
       if (debug) debug("addStudent failed", e);
     }
   }, [debug]);
@@ -109,12 +109,12 @@ export default function useTeacherAudio(send: SendSignal, sessionId?: string, de
         if (!msg.targetSocketId) return;
         await managerRef.current.handleIce(msg.targetSocketId, msg.candidate);
       } else if (msg.type === "sdp" && msg.sdpType === "offer") {
-        // worker offer or other incoming offer to teacher
+        
         if (!msg.targetSocketId) return;
         await managerRef.current.handleWorkerOffer(msg.targetSocketId, msg.sdp);
       }
     } catch (e) {
-      // Do not throw; silence is preferable
+      
       if (debug) debug("handleSignalingMessage error", e);
     }
   }, [debug]);
