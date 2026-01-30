@@ -130,7 +130,6 @@
             transform: scale(0.98);
         }
 
-        /* Transcript Box */
         .transcript-box {
             background: rgba(0, 0, 0, 0.6);
             border: 2px solid var(--primary);
@@ -206,7 +205,7 @@
             font-weight: 400;
         }
 
-        /* Visualizers */
+ 
         .viz-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -328,7 +327,6 @@
         let otherId = null;
         let audioElements = [];
 
-        // 1. WebSocket Setup
         $('connectBtn').onclick = () => {
             const port = $('serverPort').value;
             const sessionId = $('sessionId').value;
@@ -365,7 +363,7 @@
             };
         };
 
-        // 2. Transcription Engine (ONE INSTANCE ONLY)
+
         function initRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) return null;
@@ -413,13 +411,13 @@
             return rec;
         }
 
-        // 3. Presentation Control
+
         $('startBtn').onclick = async () => {
             const role = $('roleSelect').value;
             isActive = true;
 
             try {
-                // STEP 1: Get Mic Stream if teacher
+                
                 if (role === 'teacher') {
                     log("Initializing Microphone Hardware...");
                     if (!localStream) {
@@ -429,7 +427,7 @@
                     }
                 }
 
-                // STEP 2: Start Recognition
+                
                 if (!recognition) recognition = initRecognition();
                 if (recognition) {
                     try { recognition.start(); } catch (e) { log("Engine already warm."); }
@@ -445,7 +443,7 @@
                     ws.send(JSON.stringify({ channel: '/audio', payload: { type: 'start', locale: 'en-US' } }));
                     log("Lecture Broadcast LIVE");
 
-                    // IF A STUDENT IS ALREADY HERE, START THE RTC NOW
+               
                     if (otherId) {
                         log("Initiating RTC link with existing peer...");
                         pc = createPC(otherId);
@@ -485,7 +483,7 @@
             $('stopBtn').disabled = true;
         };
 
-        // 4. RTC Signaling
+       
         async function handleSignal(payload) {
             const { type, from, offer, answer, candidate } = payload;
             if (from === mySocketId) return;
@@ -494,7 +492,6 @@
             log(`RTC Signal: ${type} from ${from}`);
             if (type === 'peer-joined') {
                 log(`New Peer joined: ${from}`);
-                // If I am a teacher and active, I should send an offer to the new student
                 if ($('roleSelect').value === 'teacher' && isActive) {
                     log("Sending offer to new peer...");
                     pc = createPC(from);
@@ -548,7 +545,6 @@
                     audio.srcObject = e.streams[0];
                     audio.autoplay = true;
 
-                    // Show unmute button for browser policy
                     $('unmuteBtn').style.display = 'block';
                     $('unmuteBtn').onclick = () => {
                         audio.play().then(() => {
@@ -557,7 +553,6 @@
                         }).catch(err => log("Playback error: " + err.message));
                     };
 
-                    // Try auto-play
                     audio.play().then(() => {
                         log("Auto-play Success");
                         $('unmuteBtn').style.display = 'none';
