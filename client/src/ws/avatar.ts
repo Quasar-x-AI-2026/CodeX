@@ -21,6 +21,8 @@ export function sendAvatar(payload: AvatarPayload) {
     latestOutgoing = null;
     if (!toSend) return;
 
+    // dev debug
+    try { console.debug("ws.avatar: sending", toSend); } catch (e) {}
     sendMessage({ type: "avatar", payload: toSend });
   });
 }

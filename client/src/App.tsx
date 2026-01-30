@@ -31,6 +31,14 @@ function RouterChildren() {
     const sid = generateSessionId();
 
 
+    // Notify server of session join early so subsequent avatar/patch messages are associated with session
+    try {
+      const { sendMessage } = await import('./ws/socket');
+      sendMessage({ type: 'join', sessionId: sid, role: 'teacher' });
+    } catch (e) {
+      console.warn('failed to send join message', e);
+    }
+
     const ctrl = await startBoardCapture({
       roi: roi ?? undefined,
       onPatch: (p) => sendPatch(p),
@@ -55,15 +63,6 @@ function RouterChildren() {
       }
       boardCtrlRef.current = null;
       throw e;
-    }
-
-
-    try {
-
-      const { sendMessage } = await import('./ws/socket');
-      sendMessage({ type: 'join', sessionId: sid, role: 'teacher' });
-    } catch (e) {
-      console.warn('failed to send join message', e);
     }
 
 

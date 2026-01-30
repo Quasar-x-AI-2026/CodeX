@@ -3,7 +3,7 @@ import http from "http";
 import { v4 as uuidv4 } from "uuid";
 import { createWebSocketServer } from "./ws/index";
 import { handleDisconnect } from "./sessions/cleanup";
-import type { Request, Response, NextFunction} from "express";
+import type { Request, Response, NextFunction } from "express";
 import express from "express";
 import type { WebSocket } from "ws";
 
@@ -12,18 +12,7 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 export function startServer(port = PORT) {
   const app = express();
 
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    try {
-      const sizes: Record<string, number> = {};
-      for (const [k, v] of Object.entries(req.headers)) sizes[k] = v ? String(v).length : 0;
-      
-      const large = Object.entries(sizes).find(([_, len]) => len > 2000);
-      if (large) console.warn("Large header detected", large, sizes);
-    } catch (e) {
-      
-    }
-    next();
-  });
+
 
   app.get("/", (req: Request, res: Response) => res.send("CodeX server running"));
   app.get("/health", (req: Request, res: Response) => res.status(200).json({ status: "ok" }));
