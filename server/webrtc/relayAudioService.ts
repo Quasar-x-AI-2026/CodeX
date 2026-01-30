@@ -53,7 +53,7 @@ export class RelayAudioService {
         }
 
         console.log(`[AudioRelay] Finalizing session: ${sessionId} using provided transcript.`);
-        // Note: Full transcript is also printed in the WebSocket handler for visibility.
+        
 
         try {
             if (!this.geminiApiKey || this.geminiApiKey === "YOUR_GEMINI_API_KEY" || this.geminiApiKey === "YOUR_GEMINI_API_KEY_HERE") {

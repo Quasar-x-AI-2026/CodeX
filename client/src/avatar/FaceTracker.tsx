@@ -1,23 +1,3 @@
-
-/**
- * FaceTracker
- *
- * Exports:
- * - startTracking(callback)
- * - stopTracking()
- *
- * Behavior:
- * - Uses MediaPipe FaceMesh to detect a single face on-device
- * - Converts landmarks into 4 control values: headYaw, headPitch, mouthOpen, eyeBlink
- * - Normalizes values approximately to -1..1 (where appropriate)
- * - Throttles callback to ~8 FPS (125ms)
- * - If face is not detected, stops emitting values (does not emit zeros)
- *
- * Notes:
- * - No smoothing or rendering is performed here
- * - No networking is performed here; callback receives the control payload
- */
-
 import { FaceMesh } from '@mediapipe/face_mesh';
 import { Camera } from '@mediapipe/camera_utils';
 
