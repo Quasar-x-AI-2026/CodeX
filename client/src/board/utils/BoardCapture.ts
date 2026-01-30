@@ -7,24 +7,24 @@ export type PatchPayload = {
   y: number;
   w: number;
   h: number;
-  image: string; 
+  image: string;
 };
 
 export type StartCaptureOptions = {
   source?: "camera" | "screen";
-  
+
   roi?: ROI | { x: number; y: number; w: number; h: number };
   onPatch: (patch: PatchPayload) => void;
   onError?: (err: Error) => void;
-  
+
   downscaleMax?: number;
-  
+
   fps?: number;
-  
+
   diffOptions?: DiffOptions;
-  
+
   previewContainer?: HTMLElement | null;
-  
+
   previewFit?: "cover" | "contain";
 };
 
@@ -36,10 +36,6 @@ let offscreenCtx: CanvasRenderingContext2D | null = null;
 let prevImage: ImageData | null = null;
 let rafId: number | null = null;
 
-/**
- * startBoardCapture - starts capturing from camera or screen.
- * Returns a controller with stop() and setROI().
- */
 export async function startBoardCapture(opts: StartCaptureOptions) {
   if (running) throw new Error("startBoardCapture: already running");
   running = true;
@@ -54,12 +50,15 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
     diffOptions,
   } = opts;
 
-  
   try {
     if (source === "screen") {
-      
-      const dm = navigator.mediaDevices as MediaDevices & { getDisplayMedia?: (opts: MediaStreamConstraints) => Promise<MediaStream> };
-      if (typeof dm.getDisplayMedia !== "function") throw new Error("getDisplayMedia not supported in this environment");
+      const dm = navigator.mediaDevices as MediaDevices & {
+        getDisplayMedia?: (
+          opts: MediaStreamConstraints,
+        ) => Promise<MediaStream>;
+      };
+      if (typeof dm.getDisplayMedia !== "function")
+        throw new Error("getDisplayMedia not supported in this environment");
       mediaStream = await dm.getDisplayMedia({ video: true });
     } else {
       mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -67,11 +66,10 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
   } catch (e) {
     running = false;
     if (onError) onError(e as Error);
-    
+
     throw e;
   }
 
-  
   videoEl = document.createElement("video");
   videoEl.autoplay = true;
   videoEl.muted = true;
@@ -80,12 +78,12 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
 
   const fit = opts?.previewFit ?? "cover";
   if (opts?.previewContainer) {
-    
     try {
       const cs = getComputedStyle(opts.previewContainer);
-      if (cs.position === "static") opts.previewContainer.style.position = "relative";
+      if (cs.position === "static")
+        opts.previewContainer.style.position = "relative";
     } catch (e) {
-      
+      console.warn("Failed to get computed style of preview container", e);
     }
 
     videoEl.style.position = "absolute";
@@ -94,10 +92,12 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
     videoEl.style.width = "100%";
     videoEl.style.height = "100%";
     videoEl.style.objectFit = fit;
-    
-    opts.previewContainer.insertBefore(videoEl, opts.previewContainer.firstChild);
+
+    opts.previewContainer.insertBefore(
+      videoEl,
+      opts.previewContainer.firstChild,
+    );
   } else {
-    
     videoEl.style.position = "fixed";
     videoEl.style.left = "-10000px";
     videoEl.style.width = "320px";
@@ -106,7 +106,6 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
     document.body.appendChild(videoEl);
   }
 
-  
   offscreenCanvas = document.createElement("canvas");
   offscreenCanvas.style.display = "none";
   offscreenCtx = offscreenCanvas.getContext("2d");
@@ -118,9 +117,7 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
   }
 
   function normalizeROI(r: ROI) {
-    
     if (r.x <= 1 && r.y <= 1 && r.w <= 1 && r.h <= 1) {
-      
       return { ...r } as ROI;
     }
     return r as ROI;
@@ -146,7 +143,6 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
       return;
     }
 
-    
     let sx = 0;
     let sy = 0;
     let sw = vw;
@@ -163,14 +159,13 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
         sw = Math.round(roi.w);
         sh = Math.round(roi.h);
       }
-      
+
       sx = Math.max(0, Math.min(sx, vw - 1));
       sy = Math.max(0, Math.min(sy, vh - 1));
       sw = Math.max(1, Math.min(sw, vw - sx));
       sh = Math.max(1, Math.min(sh, vh - sy));
     }
 
-    
     const scale = Math.min(1, downscaleMax / Math.max(sw, sh));
     const dw = Math.max(1, Math.round(sw * scale));
     const dh = Math.max(1, Math.round(sh * scale));
@@ -178,16 +173,13 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
     offscreenCanvas.width = dw;
     offscreenCanvas.height = dh;
 
-    
     try {
       offscreenCtx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, dw, dh);
     } catch (e) {
-      
       rafId = requestAnimationFrame(captureFrame);
       return;
     }
 
-    
     const img = offscreenCtx.getImageData(0, 0, dw, dh);
     for (let i = 0; i < img.data.length; i += 4) {
       const r = img.data[i];
@@ -199,13 +191,14 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
       img.data[i + 2] = gray;
     }
 
-    
-    if (prevImage && prevImage.width === img.width && prevImage.height === img.height) {
+    if (
+      prevImage &&
+      prevImage.width === img.width &&
+      prevImage.height === img.height
+    ) {
       const boxes = diffFrames(prevImage, img, diffOptions ?? undefined);
       if (boxes.length > 0) {
-        
         for (const b of boxes) {
-          
           const scaleX = sw / dw;
           const scaleY = sh / dh;
           const bx = Math.round(sx + b.x * scaleX);
@@ -213,18 +206,15 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
           const bw = Math.max(1, Math.round(b.width * scaleX));
           const bh = Math.max(1, Math.round(b.height * scaleY));
 
-          
           const patchCanvas = document.createElement("canvas");
           patchCanvas.width = bw;
           patchCanvas.height = bh;
           const patchCtx = patchCanvas.getContext("2d");
           if (!patchCtx) continue;
 
-          
           try {
             patchCtx.drawImage(videoEl, bx, by, bw, bh, 0, 0, bw, bh);
           } catch (e) {
-            
             continue;
           }
 
@@ -235,15 +225,17 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
           try {
             onPatch(patch);
           } catch (e) {
-            
             if (onError) onError(e as Error);
           }
         }
       }
     }
 
-    
-    prevImage = new ImageData(new Uint8ClampedArray(img.data), img.width, img.height);
+    prevImage = new ImageData(
+      new Uint8ClampedArray(img.data),
+      img.width,
+      img.height,
+    );
 
     rafId = requestAnimationFrame(captureFrame);
   }
@@ -260,13 +252,27 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
     if (videoEl) {
       try {
         videoEl.pause();
-      } catch (e) {  }
-      try { videoEl.srcObject = null; } catch (e) {  }
-      try { videoEl.remove(); } catch (e) {  }
+      } catch (e) {
+        console.warn("Failed to pause video element", e);
+      }
+      try {
+        videoEl.srcObject = null;
+      } catch (e) {
+        console.warn("Failed to clear video element srcObject", e);
+      }
+      try {
+        videoEl.remove();
+      } catch (e) {
+        console.warn("Failed to remove video element", e);
+      }
       videoEl = null;
     }
     if (mediaStream) {
-      try { mediaStream.getTracks().forEach((t) => t.stop()); } catch (e) {  }
+      try {
+        mediaStream.getTracks().forEach((t) => t.stop());
+      } catch (e) {
+        console.warn("Failed to stop media stream tracks", e);
+      }
       mediaStream = null;
     }
     offscreenCanvas = null;
@@ -277,7 +283,6 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
 }
 
 export function stopBoardCapture() {
-  
   running = false;
 }
 

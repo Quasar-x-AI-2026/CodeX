@@ -1,17 +1,3 @@
-/**
- * Avatar Pose Controllers
- *
- * Responsibilities:
- * - Map incoming control payloads to avatar pose (rotations + morph targets)
- * - Interpolate between poses smoothly
- * - Store last valid pose
- * - Export subscription and query APIs for renderers
- *
- * Notes:
- * - No rendering, networking, or global state outside this module
- * - If updates stop, the last pose is held
- */
-
 export type ControlPayload = {
   headYaw: number; 
   headPitch: number; 
@@ -155,8 +141,7 @@ function tick() {
     step(dt);
     notifySubscribers();
   } else {
-    
-    
+    console.warn("avatar controller tick with no targetPose");    
   }
 
   rafId = requestAnimationFrame(tick);

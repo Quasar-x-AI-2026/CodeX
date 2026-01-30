@@ -6,15 +6,14 @@ export interface SessionState {
   sessionId: string | null;
   phase: SessionPhase;
   error: string | null;
-  
+
   started: boolean;
 
-  
-  startConnecting: (sessionId?: string) => void; 
-  startSession: (sessionId?: string) => void; 
-  endSession: () => void; 
-  setError: (message: string) => void; 
-  reset: () => void; 
+  startConnecting: (sessionId?: string) => void;
+  startSession: (sessionId?: string) => void;
+  endSession: () => void;
+  setError: (message: string) => void;
+  reset: () => void;
 }
 
 const useSession = create<SessionState>((set) => ({
@@ -24,16 +23,39 @@ const useSession = create<SessionState>((set) => ({
   started: false,
 
   startConnecting: (sessionId?: string) =>
-    set(() => ({ sessionId: sessionId ?? null, phase: "connecting", error: null, started: false })),
+    set(() => ({
+      sessionId: sessionId ?? null,
+      phase: "connecting",
+      error: null,
+      started: false,
+    })),
 
   startSession: (sessionId?: string) =>
-    set(() => ({ sessionId: sessionId ?? null, phase: "active", error: null, started: true })),
+    set(() => ({
+      sessionId: sessionId ?? null,
+      phase: "active",
+      error: null,
+      started: true,
+    })),
 
-  endSession: () => set(() => ({ sessionId: null, phase: "ended", error: null, started: false })),
+  endSession: () =>
+    set(() => ({
+      sessionId: null,
+      phase: "ended",
+      error: null,
+      started: false,
+    })),
 
-  setError: (message: string) => set(() => ({ phase: "error", error: message, started: false })),
+  setError: (message: string) =>
+    set(() => ({ phase: "error", error: message, started: false })),
 
-  reset: () => set(() => ({ sessionId: null, phase: "idle", error: null, started: false })),
+  reset: () =>
+    set(() => ({
+      sessionId: null,
+      phase: "idle",
+      error: null,
+      started: false,
+    })),
 }));
 
 export default useSession;

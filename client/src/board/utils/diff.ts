@@ -1,20 +1,3 @@
-/**
- * diffFrames
- *
- * Exports a single function `diffFrames(prev, next, opts?)` that computes
- * absolute pixel differences between two frames (ImageData) and returns an
- * array of bounding boxes for regions that changed.
- *
- * Algorithm summary:
- * - Compute per-pixel absolute difference (max channel diff)
- * - Threshold to a binary mask
- * - Run connected-component labeling to find regions
- * - Discard tiny regions (noise)
- * - Expand boxes by `mergeDistance` and merge overlapping boxes
- *
- * The function is pure and keeps no external state.
- */
-
 export type DiffBox = { x: number; y: number; width: number; height: number };
 
 export type DiffOptions = {

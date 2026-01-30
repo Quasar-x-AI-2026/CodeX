@@ -11,11 +11,8 @@ export interface RoleState {
 const useRole = create<RoleState>((set) => ({
   role: "student",
   setRole: (role: Role) => {
-    
     const session = useSession.getState();
     if (session.started) {
-      
-      
       console.warn("Attempted to change role after session start - ignored");
       return;
     }

@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 export type NormalizedROI = { x: number; y: number; w: number; h: number };
 
 type Props = {
-  children: React.ReactNode; 
+  children: React.ReactNode;
   value?: NormalizedROI | null;
   onChange?: (roi: NormalizedROI | null) => void;
 };

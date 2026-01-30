@@ -1,5 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import controllers, { AvatarPose } from "./controllers";
+import controllers, { AvatarPose } from "./utils/controllers";
+import { onAvatar } from "../ws/avatar";
+import { sendMessage } from "../ws/socket";
+import useSession from "../state/session";
 
 type AvatarCanvasProps = {
   width?: number;
@@ -9,13 +12,6 @@ type AvatarCanvasProps = {
   debug?: (msg: string, ...args: unknown[]) => void;
 };
 
-/**
- * AvatarCanvas
- * - Renders a simple stylized avatar using Canvas2D
- * - Subscribes to `controllers` for pose updates
- * - Runs an internal RAF loop and decouples render FPS from input FPS
- * - On missing updates, holds the last pose (does not reset)
- */
 export default function AvatarCanvas({ width = 300, height = 300, pixelRatio = window.devicePixelRatio || 1, debug }: AvatarCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -23,6 +19,7 @@ export default function AvatarCanvas({ width = 300, height = 300, pixelRatio = w
   const drawPoseRef = useRef<AvatarPose>(controllers.getPose());
   const lastUpdateRef = useRef<number>(Date.now());
   const subscriptionRef = useRef<(() => void) | null>(null);
+  const sessionId = useSession((s) => s.sessionId);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -43,6 +40,29 @@ export default function AvatarCanvas({ width = 300, height = 300, pixelRatio = w
       targetPoseRef.current = p;
       lastUpdateRef.current = Date.now();
     });
+
+    const offNet = onAvatar((p) => {
+      try {
+        controllers.updateControls(p);
+      } catch (e) {
+        console.warn("AvatarCanvas: failed to apply network avatar payload", e);
+      }
+    });
+
+    tryRequestState();
+
+    function tryRequestState(attempts = 6) {
+      const sid = sessionId;
+      if (!sid) return;
+      try {
+        const ok = sendMessage({ type: "request-state", sessionId: sid });
+        if (!ok && attempts > 0) {
+          setTimeout(() => tryRequestState(attempts - 1), 200);
+        }
+      } catch (e) {
+        if (attempts > 0) setTimeout(() => tryRequestState(attempts - 1), 200);
+      }
+    }
 
     let lastTime = performance.now();
 
@@ -79,11 +99,12 @@ export default function AvatarCanvas({ width = 300, height = 300, pixelRatio = w
       
       if (subscriptionRef.current) subscriptionRef.current();
       subscriptionRef.current = null;
+      try { offNet(); } catch (e) { /* ignore */ }
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
     
-  }, [canvasRef, width, height, pixelRatio]);
+  }, [canvasRef, width, height, pixelRatio, sessionId]);
 
   return <canvas ref={canvasRef} />;
 }

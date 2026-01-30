@@ -7,13 +7,6 @@ export type AvatarPayload = {
   eyeBlink: number;
 };
 
-/**
- * Avatar WS transport
- * - sendAvatar(payload): emits the latest payload to server (latest-wins, no buffering)
- * - onAvatar(cb): subscribe to incoming avatar payloads (latest-wins)
- */
-
-
 let latestOutgoing: AvatarPayload | null = null;
 let outgoingScheduled = false;
 
@@ -21,17 +14,16 @@ export function sendAvatar(payload: AvatarPayload) {
   latestOutgoing = payload;
   if (outgoingScheduled) return;
   outgoingScheduled = true;
-  
+
   requestAnimationFrame(() => {
     outgoingScheduled = false;
     const toSend = latestOutgoing;
     latestOutgoing = null;
     if (!toSend) return;
-    
+
     sendMessage({ type: "avatar", payload: toSend });
   });
 }
-
 
 let latestIncoming: AvatarPayload | null = null;
 let incomingScheduled = false;
@@ -42,25 +34,25 @@ function deliverIncoming() {
   const p = latestIncoming;
   latestIncoming = null;
   if (!p) return;
+  // dev debug
+  try { console.debug("ws.avatar: incoming payload", p); } catch (e) {}
   for (const cb of Array.from(listeners)) {
     try {
       cb(p);
     } catch (e) {
-      
-      
       console.warn("avatar listener error", e);
     }
   }
 }
 
-addHandler("avatar", (msg: any) => {
+addHandler("avatar", (msg) => {
   if (!msg || !msg.payload) return;
   const payload = msg.payload as AvatarPayload;
-  
+
   latestIncoming = payload;
   if (!incomingScheduled) {
     incomingScheduled = true;
-    
+
     requestAnimationFrame(deliverIncoming);
   }
 });

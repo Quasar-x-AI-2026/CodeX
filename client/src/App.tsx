@@ -6,8 +6,9 @@ import React, { useRef, useState } from 'react';
 import BoardCanvas from './board/BoardCanvas';
 import useRole from './state/role';
 import useSession from './state/session';
-import { startBoardCapture } from './board/BoardCapture';
+import { startBoardCapture } from './board/utils/BoardCapture';
 import { startTracking, stopTracking } from './avatar/FaceTracker';
+import controllers from './avatar/utils/controllers';
 import { sendPatch } from './ws/board';
 import { sendAvatar } from './ws/avatar';
 import type { NormalizedROI } from './board/BordROISelector';
@@ -25,11 +26,11 @@ function RouterChildren() {
   const boardPreviewRef = useRef<HTMLDivElement | null>(null);
 
   async function handleTeacherStart() {
-    
+
     const generateSessionId = () => Math.random().toString(36).slice(2, 8);
     const sid = generateSessionId();
 
-    
+
     const ctrl = await startBoardCapture({
       roi: roi ?? undefined,
       onPatch: (p) => sendPatch(p),
@@ -39,38 +40,38 @@ function RouterChildren() {
     });
 
     boardCtrlRef.current = ctrl;
-    
-    try { boardCtrlRef.current.setROI(roi ?? null); } catch (e) { 
-      console.warn('setROI failed', e);
-     }
 
-    
-    try {
-      await startTracking((payload) => sendAvatar(payload), { previewContainer: avatarPreviewRef.current });
-    } catch (e) {
-      
-      try { if (boardCtrlRef.current) boardCtrlRef.current.stop(); } catch (ex) { 
-        console.warn('stop board controller failed', ex);
-       }
-      boardCtrlRef.current = null;
-      throw e; 
+    try { boardCtrlRef.current.setROI(roi ?? null); } catch (e) {
+      console.warn('setROI failed', e);
     }
 
-    
+
     try {
-      
+      await startTracking((payload) => { sendAvatar(payload); try { controllers.updateControls(payload); } catch (e) { /* ignore */ } }, { previewContainer: avatarPreviewRef.current });
+    } catch (e) {
+
+      try { if (boardCtrlRef.current) boardCtrlRef.current.stop(); } catch (ex) {
+        console.warn('stop board controller failed', ex);
+      }
+      boardCtrlRef.current = null;
+      throw e;
+    }
+
+
+    try {
+
       const { sendMessage } = await import('./ws/socket');
       sendMessage({ type: 'join', sessionId: sid, role: 'teacher' });
     } catch (e) {
       console.warn('failed to send join message', e);
     }
 
-    
+
     startSession(sid);
   }
 
   async function handleTeacherStop() {
-    
+
     try {
       if (boardCtrlRef.current) {
         try { boardCtrlRef.current.stop(); } catch (e) { console.warn('stop board controller failed', e); }
@@ -80,7 +81,7 @@ function RouterChildren() {
       console.warn('stop board controller failed', e);
     }
 
-    
+
     try { stopTracking(); } catch (e) { console.warn('stopTracking failed', e); }
     endSession();
     navigate('/');
