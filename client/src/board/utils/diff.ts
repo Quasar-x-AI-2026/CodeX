@@ -1,11 +1,14 @@
+import "@tensorflow/tfjs";
+import * as cocoSsd from "@tensorflow-models/coco-ssd";
+
 export type DiffBox = { x: number; y: number; width: number; height: number };
 
 export type DiffOptions = {
-  
+
   threshold?: number;
-  
+
   minArea?: number;
-  
+
   mergeDistance?: number;
 };
 
@@ -21,12 +24,12 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
   const w = prev.width;
   const h = prev.height;
   const n = w * h;
-  const mask = new Uint8Array(n); 
+  const mask = new Uint8Array(n);
 
   const p = prev.data;
   const q = next.data;
 
-  
+
   for (let i = 0, px = 0; px < n; px++, i += 4) {
     const dr = Math.abs(p[i] - q[i]);
     const dg = Math.abs(p[i + 1] - q[i + 1]);
@@ -35,7 +38,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
     if (diff > threshold) mask[px] = 1;
   }
 
-  
+
   const visited = new Uint8Array(n);
   const boxes: DiffBox[] = [];
 
@@ -44,7 +47,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
       if (mask[idx] && !visited[idx]) {
-        
+
         let minX = x;
         let maxX = x;
         let minY = y;
@@ -64,7 +67,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
           if (cy < minY) minY = cy;
           if (cy > maxY) maxY = cy;
 
-          
+
           const up = cur - w;
           const down = cur + w;
           const left = cur - 1;
@@ -97,7 +100,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
 
   if (boxes.length === 0) return [];
 
-  
+
   const expanded = boxes.map((b) => ({
     x: Math.max(0, b.x - mergeDistance),
     y: Math.max(0, b.y - mergeDistance),
@@ -105,7 +108,7 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
     height: Math.min(h - 1, b.y + b.height - 1 + mergeDistance) - Math.max(0, b.y - mergeDistance) + 1,
   }));
 
-  
+
   const merged: DiffBox[] = [];
   const taken = new Array(expanded.length).fill(false);
 
@@ -128,10 +131,29 @@ export function diffFrames(prev: ImageData, next: ImageData, opts: DiffOptions =
     merged.push(a);
   }
 
-  
+
   const finalBoxes = merged.map((b) => shrinkBox(b, mergeDistance, w, h));
 
   return finalBoxes;
+}
+
+// Calculate Intersection over Union (IoU)
+export function calculateIoU(a: DiffBox, b: DiffBox): number {
+  const x1 = Math.max(a.x, b.x);
+  const y1 = Math.max(a.y, b.y);
+  const x2 = Math.min(a.x + a.width, b.x + b.width);
+  const y2 = Math.min(a.y + a.height, b.y + b.height);
+
+  const intersectionW = Math.max(0, x2 - x1);
+  const intersectionH = Math.max(0, y2 - y1);
+  const intersectionArea = intersectionW * intersectionH;
+
+  const areaA = a.width * a.height;
+  const areaB = b.width * b.height;
+  const unionArea = areaA + areaB - intersectionArea;
+
+  if (unionArea === 0) return 0;
+  return intersectionArea / unionArea;
 }
 
 function boxesOverlap(a: DiffBox, b: DiffBox) {
@@ -156,3 +178,48 @@ function shrinkBox(b: DiffBox, d: number, maxW: number, maxH: number): DiffBox {
 }
 
 export default diffFrames;
+
+let modelPromise: Promise<cocoSsd.ObjectDetection> | null = null;
+
+export async function detectBoardROI(imageData: ImageData): Promise<DiffBox | null> {
+  if (!modelPromise) {
+    modelPromise = cocoSsd.load();
+  }
+
+  try {
+    const model = await modelPromise;
+    const canvas = document.createElement("canvas");
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.putImageData(imageData, 0, 0);
+
+    const predictions = await model.detect(canvas);
+
+    if (predictions.length > 0) {
+      console.log("Board detection candidates:", predictions);
+
+      // Filter for likely classes if we want to be specific, or just take largest.
+      // Common classes for a board: 'tv', 'laptop', 'book', 'refrigerator' (whiteboard?), or just generic objects.
+      // For now, largest area is the best heuristic for a "main subject".
+
+      const sorted = predictions.sort((a, b) => {
+        const areaA = a.bbox[2] * a.bbox[3];
+        const areaB = b.bbox[2] * b.bbox[3];
+        return areaB - areaA;
+      });
+
+      const best = sorted[0];
+      return {
+        x: best.bbox[0],
+        y: best.bbox[1],
+        width: best.bbox[2],
+        height: best.bbox[3],
+      };
+    }
+  } catch (e) {
+    console.warn("detectBoardROI failed", e);
+  }
+  return null;
+}
