@@ -3,8 +3,6 @@ import { WebSocketServer, type WebSocket } from "ws";
 import * as signaling from "./signaling";
 import * as board from "./board";
 import * as avatar from "./avatar";
-import * as audio from "./audio";
-
 
 export type IncomingMessage = {
   channel: string;
@@ -15,7 +13,6 @@ function safeInvoke(handler: (ws: WebSocket, payload: unknown) => void, ws: WebS
   try {
     handler(ws, payload);
   } catch (err) {
-
     console.warn("ws handler error:", err);
   }
 }
@@ -42,15 +39,10 @@ function routeMessage(ws: WebSocket, msg: unknown) {
     case "/avatar":
       safeInvoke(avatar.handle, ws, m.payload);
       break;
-    case "/audio":
-      safeInvoke(audio.handle, ws, m.payload);
-      break;
-
     default:
       console.warn("ws: unknown channel:", m.channel);
   }
 }
-
 
 export function createWebSocketServer(server: http.Server) {
   const wss = new WebSocketServer({ server });
@@ -63,14 +55,12 @@ export function createWebSocketServer(server: http.Server) {
         try {
           parsed = JSON.parse(text);
         } catch (e) {
-
           console.warn("ws: failed to parse message JSON", e instanceof Error ? e.message : e);
           return;
         }
 
         routeMessage(ws, parsed);
       } catch (err) {
-
         console.warn("ws: unexpected error handling message", err);
       }
     });

@@ -244,16 +244,40 @@
                     <span id="rtcStatus" class="status-badge status-offline"><span class="status-dot"></span> RTC
                         IDLE</span>
                 </div>
-                <button id="startCallBtn" class="btn btn-green" disabled>Manual Call</button>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button id="startCallBtn" class="btn btn-green" disabled>Start Lecture</button>
+                    <button id="stopLectureBtn" class="btn" style="background: var(--error);" disabled>Stop &
+                        Summarize</button>
+                </div>
+            </div>
+
+            <div id="summaryBox"
+                style="display: none; margin-top: 20px; padding: 15px; border: 2px solid #10b981; border-radius: 12px; background: #f0fdf4;">
+                <h3 style="margin-top: 0; color: #065f46;">AI Lecture Summary</h3>
+                <p id="summaryContent" style="color: #06f46; line-height: 1.6;"></p>
+            </div>
+
+            <div id="liveTranscriptContainer"
+                style="margin-top: 20px; padding: 15px; border: 2px solid #6366f1; border-radius: 12px; background: #f5f3ff;">
+                <h3 style="margin-top: 0; color: #4338ca; font-size: 14px;">Live Transcription (Edit to refine summary)
+                </h3>
+                <textarea id="liveTranscript" placeholder="Talk to see the live transcript here, or type manually..."
+                    style="width: 100%; height: 100px; border: 1px solid #c7d2fe; border-radius: 8px; padding: 10px; font-size: 14px; color: #4338ca; background: white; resize: vertical;"></textarea>
+                <p style="font-size: 11px; color: #6366f1; margin-top: 5px;">* Verify your transcript above before
+                    clicking 'Stop & Summarize'.</p>
+            </div>
+
+            <div id="logs"
+                style="margin-top: 20px; font-family: monospace; font-size: 12px; color: #64748b; background: #f8fafc; padding: 10px; border-radius: 8px; max-height: 150px; overflow-y: auto; border: 1px solid #e2e8f0;">
             </div>
 
             <div class="visualizer-container">
                 <div class="visualizer-box">
-                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 5px;">LOCAL AUDIO</div>
+                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 5px;">LOCAL AUDIO (MIC)</div>
                     <canvas id="localVisualizer"></canvas>
                 </div>
                 <div class="visualizer-box">
-                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 5px;">REMOTE AUDIO</div>
+                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 5px;">REMOTE AUDIO (LIVE)</div>
                     <canvas id="remoteVisualizer"></canvas>
                 </div>
             </div>
@@ -279,6 +303,7 @@
         let peerConnection = null;
         let mySocketId = null;
         let otherSocketId = null;
+        let mediaRecorder = null;
 
         const configuration = {
             iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -313,6 +338,8 @@
                     log(`My ID: ${mySocketId}`);
                 } else if (data.channel === '/signal') {
                     handleSignal(data.payload);
+                } else if (data.channel === '/audio') {
+                    handleAudioChannel(data.payload);
                 }
             };
 
@@ -332,8 +359,7 @@
             if (type === 'peer-joined') {
                 const myRole = $('role').value;
                 if (myRole === 'teacher' && role === 'student') {
-                    log('Student joined, auto-initiating call...');
-                    startCall(from);
+                    log('Student joined, you can now start the lecture.');
                 }
             } else if (type === 'offer') {
                 await handleOffer(offer, from);
@@ -344,15 +370,122 @@
             }
         }
 
-        async function startAudio() {
-            if (localStream) return localStream;
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            log('Mic access granted');
-            setupVisualizer(localStream, 'localVisualizer', '#6366f1');
-            return localStream;
+        function handleAudioChannel(payload) {
+            if (payload.type === 'summary') {
+                $('summaryBox').style.display = 'block';
+                $('summaryContent').innerText = payload.summary;
+                log('Lecture summary received!');
+                console.log("--- Lecture Transcript ---");
+                console.log(payload.transcript);
+                console.log("--- Lecture Summary ---");
+                console.log(payload.summary);
+            }
         }
 
-        function createPeerConnection(targetId) {
+        let recognition = null;
+        let finalTranscript = "";
+        let isLectureActive = false;
+
+        async function startTeacherAudio() {
+            // If already active, just return
+            if (isLectureActive && localStream && localStream.getAudioTracks().some(t => t.readyState === 'live')) {
+                return localStream;
+            }
+
+            try {
+                // If stream exists but lecture wasn't active, ensure it's fresh or reusable
+                if (!localStream || !localStream.getAudioTracks().some(t => t.readyState === 'live')) {
+                    log('Requesting microphone access...');
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    log('Mic access granted (Teacher)');
+                    setupVisualizer(localStream, 'localVisualizer', '#6366f1');
+                }
+
+                isLectureActive = true;
+                setupTranscription();
+                return localStream;
+            } catch (e) {
+                log('Error accessing mic: ' + e.message);
+                alert('Microphone access is required for teachers.');
+                throw e;
+            }
+        }
+
+        let recognitionRetryCount = 0;
+        const MAX_RECOGNITION_RETRIES = 3;
+
+        function setupTranscription() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                log('Web Speech API is not supported in this browser.');
+                return;
+            }
+
+            // Create new instance if needed
+            if (recognition) {
+                try { recognition.abort(); } catch (e) { }
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                log('Transcription service: LISTENING');
+                recognitionRetryCount = 0; // Reset on success
+                $('liveTranscriptContainer').style.display = 'block';
+                if ($('liveTranscript').value === 'Waiting for speech...') {
+                    $('liveTranscript').value = '';
+                }
+            };
+
+            recognition.onresult = (event) => {
+                let currentTotal = '';
+                for (let i = 0; i < event.results.length; ++i) {
+                    currentTotal += event.results[i][0].transcript + ' ';
+                }
+                finalTranscript = currentTotal.trim();
+                $('liveTranscript').value = finalTranscript;
+                $('liveTranscript').scrollTop = $('liveTranscript').scrollHeight;
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error === 'no-speech') return;
+                log('Transcription Error: ' + event.error);
+                if (event.error === 'not-allowed') {
+                    isLectureActive = false;
+                    log('Permission denied for Speech Recognition.');
+                }
+            };
+
+            recognition.onend = () => {
+                if (isLectureActive && recognitionRetryCount < MAX_RECOGNITION_RETRIES) {
+                    recognitionRetryCount++;
+                    log('Restarting transcription... (Attempt ' + recognitionRetryCount + ')');
+                    setTimeout(() => {
+                        if (isLectureActive) try { recognition.start(); } catch (e) { }
+                    }, 1000);
+                } else if (isLectureActive) {
+                    log('Transcription service failed too many times. Manual entry enabled.');
+                } else {
+                    log('Transcription service stopped.');
+                }
+            };
+
+            try {
+                recognition.start();
+            } catch (err) {
+                console.error("Failed to start recognition:", err);
+            }
+
+            ws.send(JSON.stringify({
+                channel: '/audio',
+                payload: { type: 'start', locale: 'en-US' }
+            }));
+        }
+
+        function createPeerConnection(targetId, isTeacher) {
             if (peerConnection) peerConnection.close();
             peerConnection = new RTCPeerConnection(configuration);
 
@@ -369,44 +502,65 @@
                 updateRTCStatus(peerConnection.connectionState);
             };
 
-            peerConnection.ontrack = (event) => {
-                log('Remote audio received');
-                const audio = new Audio();
-                audio.srcObject = event.streams[0];
-                audio.play();
-                setupVisualizer(event.streams[0], 'remoteVisualizer', '#10b981');
-            };
+            if (isTeacher) {
+                // Teacher sends audio
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            } else {
+                // Student only receives
+                peerConnection.addTransceiver('audio', { direction: 'recvonly' });
+                peerConnection.ontrack = (event) => {
+                    log('Live teacher audio received!');
+                    const audio = new Audio();
+                    audio.srcObject = event.streams[0];
+                    audio.play();
+                    setupVisualizer(event.streams[0], 'remoteVisualizer', '#10b981');
+                };
+            }
 
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
             return peerConnection;
         }
 
         async function startCall(targetId) {
-            await startAudio();
-            peerConnection = createPeerConnection(targetId);
+            const myRole = $('role').value;
+            if (myRole !== 'teacher') {
+                log('Only teachers can start a lecture.');
+                return;
+            }
+
+            await startTeacherAudio();
+            peerConnection = createPeerConnection(targetId, true);
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
+
             ws.send(JSON.stringify({
                 channel: '/signal',
                 payload: { type: 'offer', offer, targetSocketId: targetId }
             }));
+
+            $('startCallBtn').disabled = true;
+            $('stopLectureBtn').disabled = false;
             updateRTCStatus('connecting');
         }
 
         async function handleOffer(offer, from) {
-            await startAudio();
-            peerConnection = createPeerConnection(from);
+            const myRole = $('role').value;
+            // Unidirectional: Student never captures mic
+            peerConnection = createPeerConnection(from, myRole === 'teacher');
+
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
+
             ws.send(JSON.stringify({
                 channel: '/signal',
                 payload: { type: 'answer', answer, targetSocketId: from }
             }));
+            log('Answered teacher offer');
         }
 
         async function handleAnswer(answer) {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            log('RTC Handshake Complete');
         }
 
         function updateRTCStatus(state) {
@@ -417,13 +571,46 @@
 
         $('startCallBtn').onclick = () => {
             if (otherSocketId) startCall(otherSocketId);
-            else log('No peer connected yet');
+            else log('No peer connected yet. Wait for a student to join.');
+        };
+
+        $('stopLectureBtn').onclick = () => {
+            const currentTranscript = $('liveTranscript').value || finalTranscript;
+
+            if (!currentTranscript || currentTranscript.length < 5) {
+                const proceed = confirm("No transcript has been captured yet. Stop anyway?");
+                if (!proceed) return;
+            }
+
+            log('Stopping lecture and sending transcript...');
+            isLectureActive = false;
+            if (recognition) {
+                try { recognition.stop(); } catch (e) { }
+            }
+
+            ws.send(JSON.stringify({
+                channel: '/audio',
+                payload: { type: 'stop', transcript: currentTranscript }
+            }));
+
+            $('stopLectureBtn').disabled = true;
+            if (peerConnection) peerConnection.close();
+
+            // Cleanly stop the mic so the browser icon goes away
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            updateRTCStatus('idle');
+            // Keep live transcript box visible for review
+            // $('liveTranscriptContainer').style.display = 'none';
         };
 
         function setupVisualizer(stream, canvasId, color) {
             const canvas = $(canvasId);
             const ctx = canvas.getContext('2d');
-            const audioCtx = new AudioContext();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const source = audioCtx.createMediaStreamSource(stream);
             const analyser = audioCtx.createAnalyser();
             analyser.fftSize = 64;
