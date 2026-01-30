@@ -204,13 +204,29 @@ export async function detectBoardROI(imageData: ImageData): Promise<DiffBox | nu
       // Common classes for a board: 'tv', 'laptop', 'book', 'refrigerator' (whiteboard?), or just generic objects.
       // For now, largest area is the best heuristic for a "main subject".
 
+      const BOARD_CLASSES = ['tv', 'monitor', 'laptop', 'refrigerator', 'microwave', 'oven', 'book', 'clock'];
+
       const sorted = predictions.sort((a, b) => {
+        const isBoardA = BOARD_CLASSES.includes(a.class) ? 1 : 0;
+        const isBoardB = BOARD_CLASSES.includes(b.class) ? 1 : 0;
+
+        if (isBoardA !== isBoardB) return isBoardB - isBoardA; // Prioritize board classes
+
         const areaA = a.bbox[2] * a.bbox[3];
         const areaB = b.bbox[2] * b.bbox[3];
-        return areaB - areaA;
+        return areaB - areaA; // Then largest
       });
 
       const best = sorted[0];
+
+      // If the best match is "person" and there are other detections, maybe we shouldn't just assume person is the board.
+      // But if there is ONLY a person, maybe the user wants to see the person?
+      // The requirement is "identify that, yes this is a board".
+
+      // If we found a board class, great. If not, and we found a person, be careful.
+      // Let's stick to area for non-board classes, but deprioritize people if possible?
+      // Actually, let's just use the prioritization logic above. If no board class is found, it will pick the largest object.
+
       return {
         x: best.bbox[0],
         y: best.bbox[1],

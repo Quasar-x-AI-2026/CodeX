@@ -22,7 +22,8 @@ function RouterChildren() {
   const navigate = useNavigate();
 
   const [roi, setRoi] = useState<NormalizedROI | null>(null);
-  const boardCtrlRef = useRef<{ stop: () => void; setROI: (r: NormalizedROI | null) => void; isRunning: () => boolean } | null>(null);
+  const isNextUpdateAutoRef = useRef(false);
+  const boardCtrlRef = useRef<{ stop: () => void; setROI: (r: NormalizedROI | null, fromUser?: boolean) => void; isRunning: () => boolean } | null>(null);
   const avatarPreviewRef = useRef<HTMLDivElement | null>(null);
   const boardPreviewRef = useRef<HTMLDivElement | null>(null);
 
@@ -43,6 +44,10 @@ function RouterChildren() {
     const ctrl = await startBoardCapture({
       roi: roi ?? undefined,
       onPatch: (p) => sendPatch(p),
+      onROIChange: (r) => {
+        isNextUpdateAutoRef.current = true;
+        setRoi(r);
+      },
       onError: (e) => console.warn('board capture error', e),
       previewContainer: boardPreviewRef.current ?? null,
       previewFit: 'cover',
@@ -96,7 +101,10 @@ function RouterChildren() {
   React.useEffect(() => {
     if (boardCtrlRef.current) {
       try {
-        boardCtrlRef.current.setROI(roi ?? null);
+        const isAuto = isNextUpdateAutoRef.current;
+        isNextUpdateAutoRef.current = false;
+        // if isAuto is true, then fromUser is false.
+        boardCtrlRef.current.setROI(roi ?? null, !isAuto);
       } catch (e) {
         console.warn('setROI failed', e);
       }

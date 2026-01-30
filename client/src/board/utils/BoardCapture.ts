@@ -15,6 +15,7 @@ export type StartCaptureOptions = {
 
   roi?: ROI | { x: number; y: number; w: number; h: number };
   onPatch: (patch: PatchPayload) => void;
+  onROIChange?: (roi: ROI) => void; // Callback to notify UI of auto-updates
   onError?: (err: Error) => void;
 
   downscaleMax?: number;
@@ -113,9 +114,11 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
   let roi: ROI | null = initialRoi ? normalizeROI(initialRoi) : null;
   let manualRoiSelected = !!initialRoi;
 
-  function setROI(r: ROI | null) {
+  function setROI(r: ROI | null, fromUser: boolean = true) {
     roi = r ? normalizeROI(r) : null;
-    manualRoiSelected = true;
+    if (fromUser) {
+      manualRoiSelected = true;
+    }
   }
 
   function normalizeROI(r: ROI) {
@@ -232,6 +235,9 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
 
           console.log("Updating ROI from auto-detection", newRoi);
           roi = newRoi;
+          if (opts.onROIChange) {
+            opts.onROIChange(newRoi);
+          }
         });
       }
     }
