@@ -394,8 +394,8 @@ export class StudentAudioManager {
 
 let peerConnection: RTCPeerConnection | null = null;
 let microphoneStream: MediaStream | null = null;
-let sessionId: string | null = null;
-let role: 'teacher' | 'student' | null = null;
+const sessionId: string | null = null;
+const role: 'teacher' | 'student' | null = null;
 let negotiationAttempts = 0;
 const maxNegotiationAttempts = 3;
 const retryDelay = 1000; 
@@ -407,9 +407,7 @@ function createPeerConnection() {
     peerConnection = new RTCPeerConnection({ iceServers: DEFAULT_STUN });
 
     peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            
-        }
+        if (event.candidate) { /* empty */ }
     };
 
     peerConnection.ontrack = (event) => {
