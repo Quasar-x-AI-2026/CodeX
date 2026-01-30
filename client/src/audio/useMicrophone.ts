@@ -1,107 +1,99 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type UseMicrophoneResult = {
+type UseMicrophoneReturn = {
   stream: MediaStream | null;
-  error: Error | null;
-  requesting: boolean;
   start: () => Promise<void>;
   stop: () => void;
+  error: string | null;
 };
 
-export function useMicrophone(
-  autoStart: boolean = true,
-  constraints: MediaStreamConstraints = { audio: true },
-): UseMicrophoneResult {
+/**
+ * useMicrophone - requests microphone permission and exposes a MediaStream
+ *
+ * Responsibilities:
+ * - use navigator.mediaDevices.getUserMedia({ audio: true })
+ * - expose start() and stop()
+ * - track error state
+ * - stop all tracks on stop or unmount
+ *
+ * Must not include any WebRTC, socket, UI, or audio processing logic.
+ */
+export default function useMicrophone(): UseMicrophoneReturn {
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const [requesting, setRequesting] = useState<boolean>(false);
-
+  const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
-  const pendingPromiseRef = useRef<Promise<void> | null>(null);
 
-  const clearStream = useCallback((s: MediaStream | null) => {
-    if (!s) return;
-    for (const track of s.getTracks()) track.stop();
+  // Keep a ref to the stream so stop() can access the latest stream synchronously
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      // Ensure we stop and release on unmount
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+    };
+    // We intentionally do not include streamRef or stream in deps; cleanup runs on unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const stop = useCallback(() => {
-    
-    if (stream) {
-      clearStream(stream);
-      setStream(null);
-    }
-    setError(null);
-    setRequesting(false);
-  }, [stream, clearStream]);
-
-  const start = useCallback(async () => {
-    
-    if (requesting) return;
-
-    setRequesting(true);
-    setError(null);
-
-    
-    if (!navigator?.mediaDevices?.getUserMedia) {
-      const err = new Error("getUserMedia not supported in this browser");
-      setError(err);
-      setRequesting(false);
+  const start = useCallback(async (): Promise<void> => {
+    // If we already have a stream, do nothing
+    if (streamRef.current) {
       return;
     }
 
-    const p = (async () => {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia(constraints);
-        if (!mountedRef.current) {
-          
-          clearStream(s);
-          return;
-        }
-        setStream(s);
-      } catch (err: unknown) {
-        
-        let e: Error;
-        if (err instanceof Error) e = err;
-        else e = new Error(String(err));
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      setError("getUserMedia is not supported in this browser");
+      return;
+    }
 
-        
-        
-        if ((e as any).name === "NotAllowedError" || (e as any).name === "PermissionDeniedError") {
-          setError(new Error("Microphone access was denied. Please enable it in your browser settings."));
-        } else if ((e as any).name === "NotFoundError") {
-          setError(new Error("No microphone found on this device."));
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mountedRef.current) {
+        // If unmounted while awaiting permission, stop the obtained tracks immediately
+        s.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
+      streamRef.current = s;
+      setStream(s);
+      setError(null);
+    } catch (err: unknown) {
+      // Handle permission and device errors gracefully
+      let msg = "Failed to access microphone";
+
+      // DOMException for permission denied or device not found
+      if (err instanceof Error) {
+        // Some browsers set the name to 'NotAllowedError', 'PermissionDeniedError', 'NotFoundError'
+        // Use the name property when available
+        const name = (err).name;
+        if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+          msg = "Microphone permission denied";
+        } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+          msg = "No microphone found";
         } else {
-          setError(e);
+          msg = err.message || String(err);
         }
-      } finally {
-        if (mountedRef.current) setRequesting(false);
+      } else {
+        msg = String(err);
       }
-    })();
 
-    pendingPromiseRef.current = p;
-    await p;
-    pendingPromiseRef.current = null;
-  }, [constraints, requesting, clearStream]);
-
-  
-  useEffect(() => {
-    mountedRef.current = true;
-    if (autoStart) start().catch(() => {
-      
-    });
-
-    return () => {
-      mountedRef.current = false;
-      
-      if (pendingPromiseRef.current) {
-        
-      }
-      stop();
-    };
-    
+      setError(msg);
+    }
   }, []);
 
-  return { stream, error, requesting, start, stop };
-}
+  const stop = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      setStream(null);
+    }
+    // Do not clear error here; stopping is a normal operation
+  }, []);
 
-export default useMicrophone;
+  return { stream, start, stop, error };
+}

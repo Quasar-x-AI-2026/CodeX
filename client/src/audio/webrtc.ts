@@ -1,4 +1,4 @@
-import { Answer, IceCandidateMessage, Offer, SignalingMessage,  } from "./webrtctypes";
+import { Answer, IceCandidateMessage, Offer, SignalingMessage,  } from "./webRtcTypes";
 
 
 const DEFAULT_STUN = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -127,7 +127,7 @@ export class TeacherAudioManager {
           for (const tr of transceivers) {
             if (tr.receiver && tr.receiver.track && tr.receiver.track.kind === "audio") continue;
             
-            if (typeof (tr as any).setCodecPreferences === "function") (tr as any).setCodecPreferences(opusCodecs);
+            if (typeof (tr).setCodecPreferences === "function") (tr).setCodecPreferences(opusCodecs);
           }
         } catch (e) {
           this.log("setCodecPreferences failed", e);
@@ -182,7 +182,9 @@ export class TeacherAudioManager {
   async removeStudent(targetSocketId: string) {
     const ent = this.pcs.get(targetSocketId);
     if (!ent) return;
-    try { ent.pc.close(); } catch {};
+    try { ent.pc.close(); } catch {
+      console.warn("error closing peer connection");
+    };
     this.pcs.delete(targetSocketId);
   }
 
@@ -242,7 +244,9 @@ export class TeacherAudioManager {
 
   async close() {
     for (const [k, v] of this.pcs.entries()) {
-      try { v.pc.close(); } catch {}
+      try { v.pc.close(); } catch {
+        console.warn("error closing peer connection");
+      }
       this.pcs.delete(k);
     }
     if (this.localStream) {
@@ -268,7 +272,9 @@ export class StudentAudioManager {
   async handleOffer(fromSocketId: string, offer: RTCSessionDescriptionInit) {
     
     if (this.pcEntry) {
-      try { this.pcEntry.pc.close(); } catch {}
+      try { this.pcEntry.pc.close(); } catch {
+        console.warn("error closing peer connection");
+      }
       this.pcEntry = undefined;
     }
 
@@ -289,7 +295,7 @@ export class StudentAudioManager {
       if (opusCodecs.length > 0) {
         try {
           const transceiver = pc.addTransceiver("audio", { direction: "recvonly" });
-          if (typeof (transceiver as any).setCodecPreferences === "function") (transceiver as any).setCodecPreferences(opusCodecs);
+          if (typeof (transceiver).setCodecPreferences === "function") (transceiver).setCodecPreferences(opusCodecs);
         } catch (e) {
           this.log("setCodecPreferences failed on recv", e);
         }
@@ -327,7 +333,9 @@ export class StudentAudioManager {
     const ent = this.pcEntry;
     if (ent.restartAttempts >= 3) {
       this.log("recreate pc after repeated failures");
-      try { ent.pc.close(); } catch {}
+      try { ent.pc.close(); } catch {
+        console.warn("error closing peer connection");
+      }
       this.pcEntry = undefined;
       
       return;
@@ -348,69 +356,105 @@ export class StudentAudioManager {
 
   async close() {
     if (!this.pcEntry) return;
-    try { this.pcEntry.pc.close(); } catch {}
+    try { this.pcEntry.pc.close(); } catch {
+      this.log("error closing peer connection");
+    }
     this.pcEntry = undefined;
   }
 }
 
-let peerConnection: RTCPeerConnection | null = null;
-let microphoneStream: MediaStream | null = null;
-let sessionId: string | null = null;
-let role: 'teacher' | 'student' | null = null;
-let negotiationAttempts = 0;
-const maxNegotiationAttempts = 3;
-const retryDelay = 1000; 
+type OnIceCandidate = (candidate: RTCIceCandidateInit) => void;
 
-function createPeerConnection() {
-    if (peerConnection) {
-        peerConnection.close(); 
+/**
+ * createPeerConnection - lightweight helper for creating/configuring an RTCPeerConnection
+ *
+ * Responsibilities:
+ * - create RTCPeerConnection with sane defaults
+ * - expose helpers: createOffer, createAnswer, applyRemoteDescription
+ * - allow attaching a local MediaStream via addLocalStream()
+ * - emit ICE candidates via onIceCandidate callback
+ * - queue ICE until remote description is set
+ *
+ * Does NOT perform any role-specific logic, signaling, or UI work.
+ */
+export function createPeerConnection(onIceCandidate?: OnIceCandidate, iceServers: RTCIceServer[] = DEFAULT_STUN) {
+  const pc = new RTCPeerConnection({ iceServers });
+  const queuedIce: RTCIceCandidateInit[] = [];
+  let remoteDescSet = false;
+
+  pc.onicecandidate = (ev) => {
+    if (!ev.candidate) return;
+    try {
+      const payload = ev.candidate.toJSON();
+      if (onIceCandidate) onIceCandidate(payload);
+    } catch (e) {
+      // swallow - ICE emission should not throw
+      // degrade silently on ICE errors
+      // eslint-disable-next-line no-console
+      console.warn("onicecandidate callback failed", e);
     }
-    peerConnection = new RTCPeerConnection({ iceServers: DEFAULT_STUN });
+  };
 
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            
-        }
-    };
+  // leave ontrack handling to consumer via pc.ontrack
 
-    peerConnection.ontrack = (event) => {
-        
-    };
+  async function addIceCandidate(candidate: RTCIceCandidateInit) {
+    if (!remoteDescSet) {
+      queuedIce.push(candidate);
+      return;
+    }
+    try {
+      await pc.addIceCandidate(candidate);
+    } catch (e) {
+      // ICE failures should degrade silently
+      // eslint-disable-next-line no-console
+      console.warn("addIceCandidate failed", e);
+    }
+  }
+
+  async function flushQueue() {
+    remoteDescSet = true;
+    while (queuedIce.length > 0) {
+      const c = queuedIce.shift()!;
+      try {
+        await pc.addIceCandidate(c);
+      } catch (e) {
+        // continue on error
+        // eslint-disable-next-line no-console
+        console.warn("queued addIceCandidate error", e);
+      }
+    }
+  }
+
+  function addLocalStream(stream: MediaStream) {
+    for (const t of stream.getTracks()) pc.addTrack(t, stream);
+  }
+
+  async function createOffer(options?: RTCOfferOptions) {
+    const offer = await pc.createOffer(options);
+    const sdpStr = preferOpus(offer.sdp ?? "");
+    await pc.setLocalDescription({ type: offer.type, sdp: sdpStr });
+    return pc.localDescription as RTCSessionDescriptionInit;
+  }
+
+  async function createAnswer() {
+    const answer = await pc.createAnswer();
+    const sdpStr = preferOpus(answer.sdp ?? "");
+    await pc.setLocalDescription({ type: answer.type, sdp: sdpStr });
+    return pc.localDescription as RTCSessionDescriptionInit;
+  }
+
+  async function applyRemoteDescription(desc: RTCSessionDescriptionInit) {
+    await pc.setRemoteDescription(desc);
+    await flushQueue();
+  }
+
+  function close() {
+    try { pc.close(); } catch {
+      // ignore
+    }
+  }
+
+  return { pc, addLocalStream, createOffer, createAnswer, applyRemoteDescription, addIceCandidate, close };
 }
-
-function reconnectWebSocket() {
-    
-    createPeerConnection();
-    if (role === 'teacher' && !microphoneStream) {
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            microphoneStream = stream;
-            if (microphoneStream) {
-                microphoneStream.getTracks().forEach(track => peerConnection?.addTrack(track, microphoneStream!));
-            }
-        });
-    }
-    
-    if (peerConnection) {
-        peerConnection.createOffer().then(offer => {
-        if (peerConnection) {
-            return peerConnection.setLocalDescription(offer);
-        }
-    }).then(() => {
-        
-        }).catch(handleNegotiationFailure);
-    }
-}
-
-function handleNegotiationFailure() {
-    if (negotiationAttempts < maxNegotiationAttempts) {
-        negotiationAttempts++;
-        setTimeout(() => reconnectWebSocket(), retryDelay);
-    } else {
-        console.error('Max negotiation attempts reached.');
-    }
-}
-
-
-createPeerConnection();
 
 export default { TeacherAudioManager, StudentAudioManager };
