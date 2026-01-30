@@ -4,207 +4,234 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Audio Test - CodeX</title>
+    <title>CodeX - Ultimate Audio Engine</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono&display=swap');
+
         :root {
             --primary: #6366f1;
-            --primary-hover: #4f46e5;
-            --bg: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
+            --primary-glow: rgba(99, 102, 241, 0.5);
+            --bg: #0b0f1a;
+            --card-bg: rgba(20, 26, 45, 0.9);
             --text: #f8fafc;
             --text-dim: #94a3b8;
             --accent: #10b981;
-            --error: #ef4444;
+            --accent-glow: rgba(16, 185, 129, 0.4);
+            --error: #f43f5e;
+            --glass-border: rgba(255, 255, 255, 0.1);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Outfit', sans-serif;
         }
 
         body {
             background-color: var(--bg);
             background-image:
-                radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
-                radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 40%);
+                radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 90%, rgba(16, 185, 129, 0.1) 0%, transparent 40%);
             color: var(--text);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
             padding: 2rem;
         }
 
         .container {
             width: 100%;
-            max-width: 800px;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 2rem;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
         }
 
-        .card {
+        .glass-card {
             background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
             border-radius: 1.5rem;
             padding: 2rem;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
         }
 
         h1 {
-            font-size: 2.25rem;
+            font-size: 3rem;
             font-weight: 800;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(to right, #818cf8, #34d399);
+            text-align: center;
+            background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-align: center;
-        }
-
-        p.subtitle {
-            color: var(--text-dim);
-            text-align: center;
             margin-bottom: 2rem;
         }
 
-        .setup-grid {
+        .input-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
         }
 
-        @media (max-width: 640px) {
-            .setup-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .input-group {
+        .field {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
         }
 
         label {
-            font-size: 0.875rem;
-            font-weight: 600;
+            font-size: 0.75rem;
+            font-weight: 700;
             color: var(--text-dim);
+            text-transform: uppercase;
         }
 
         input,
         select {
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--glass-border);
             border-radius: 0.75rem;
-            padding: 0.75rem 1rem;
+            padding: 0.8rem;
             color: white;
             font-size: 1rem;
-            transition: all 0.2s;
-        }
-
-        input:focus,
-        select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
         }
 
         .btn {
-            background: var(--primary);
-            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 1rem;
             border: none;
-            border-radius: 0.75rem;
-            padding: 0.75rem 1.5rem;
-            font-size: 1rem;
-            font-weight: 600;
+            font-weight: 800;
             cursor: pointer;
             transition: all 0.2s;
-            text-align: center;
-        }
-
-        .btn:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        .btn-green {
-            background: var(--accent);
-        }
-
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 700;
+            color: white;
             text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
+        .btn-primary {
+            background: var(--primary);
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .btn-accent {
+            background: var(--accent);
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+
+        .btn-stop {
+            background: var(--error);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: scale(0.98);
+        }
+
+        /* Transcript Box */
+        .transcript-box {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid var(--primary);
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            position: relative;
+        }
+
+        .transcript-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        #voiceStatusBadge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.4rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            background: currentColor;
+            background: #4b5563;
         }
 
-        .status-offline {
-            color: var(--error);
-            background: rgba(239, 68, 68, 0.1);
+        .pulse-dot.ready {
+            background: #fbbf24;
+            box-shadow: 0 0 10px #fbbf24;
         }
 
-        .status-online {
-            color: var(--accent);
-            background: rgba(16, 185, 129, 0.1);
+        .pulse-dot.active {
+            background: #10b981;
+            box-shadow: 0 0 15px #10b981;
+            animation: pulse 1s infinite;
         }
 
-        .status-connecting {
-            color: var(--primary);
-            background: rgba(99, 102, 241, 0.1);
+        .pulse-dot.error {
+            background: #ef4444;
         }
 
-        .visualizer-container {
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        #liveTranscriptArea {
+            width: 100%;
+            height: 300px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            font-weight: 400;
+        }
+
+        /* Visualizers */
+        .viz-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
-            margin-top: 2rem;
-        }
-
-        .visualizer-box {
-            background: rgba(15, 23, 42, 0.8);
-            border-radius: 1rem;
-            padding: 1rem;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 1rem;
         }
 
         canvas {
             width: 100%;
             height: 60px;
-            border-radius: 0.5rem;
-        }
-
-        #log {
-            margin-top: 2rem;
             background: rgba(0, 0, 0, 0.3);
-            border-radius: 1rem;
-            padding: 1rem;
-            font-family: monospace;
-            font-size: 0.75rem;
-            height: 150px;
-            overflow-y: auto;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            color: #10b981;
+            border-radius: 0.75rem;
+            border: 1px solid var(--glass-border);
         }
 
-        .log-time {
-            color: #64748b;
-            margin-right: 0.5rem;
+        #logArea {
+            height: 100px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 1rem;
+            padding: 0.8rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            overflow-y: auto;
+            color: #10b981;
+            margin-top: 1rem;
         }
     </style>
 </head>
@@ -212,378 +239,234 @@
 <body>
 
     <div class="container">
-        <div class="card">
-            <h1>CodeX WebRTC</h1>
-            <p class="subtitle">High-fidelity audio transfer test</p>
+        <h1>CodeX Transcription</h1>
 
-            <div class="setup-grid">
-                <div class="input-group">
-                    <label>Server Port</label>
+        <div class="glass-card">
+            <div class="input-row">
+                <div class="field">
+                    <label>Port</label>
                     <input type="number" id="serverPort" value="3000">
                 </div>
-                <div class="input-group">
+                <div class="field">
                     <label>Session ID</label>
-                    <input type="text" id="sessionId" value="test-room">
+                    <input type="text" id="sessionId" value="test-lecture">
                 </div>
-                <div class="input-group">
+                <div class="field">
                     <label>My Role</label>
-                    <select id="role">
-                        <option value="teacher">Teacher (Host)</option>
-                        <option value="student">Student (Peer)</option>
+                    <select id="roleSelect">
+                        <option value="teacher">Teacher (Presenter)</option>
+                        <option value="student">Student (Listener)</option>
                     </select>
                 </div>
-                <div class="input-group" style="justify-content: flex-end;">
-                    <button id="connectBtn" class="btn">Connect WebSocket</button>
-                </div>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <div>
-                    <span id="wsStatus" class="status-badge status-offline"><span class="status-dot"></span> WS
-                        DISCONNECTED</span>
-                    <span id="rtcStatus" class="status-badge status-offline"><span class="status-dot"></span> RTC
-                        IDLE</span>
-                </div>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button id="startCallBtn" class="btn btn-green" disabled>Start Lecture</button>
-                    <button id="stopLectureBtn" class="btn" style="background: var(--error);" disabled>Stop &
-                        Summarize</button>
-                </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button id="connectBtn" class="btn btn-primary" style="flex: 1;">Connect System</button>
+                <button id="startBtn" class="btn btn-accent" style="flex: 1;" disabled>Start Presentation</button>
+                <button id="unmuteBtn" class="btn"
+                    style="background: #fbbf24; color: #000; flex: 1; display: none;">Unmute Audio</button>
             </div>
-
-            <div id="summaryBox"
-                style="display: none; margin-top: 20px; padding: 15px; border: 2px solid #10b981; border-radius: 12px; background: #f0fdf4;">
-                <h3 style="margin-top: 0; color: #065f46;">AI Lecture Summary</h3>
-                <p id="summaryContent" style="color: #06f46; line-height: 1.6;"></p>
-            </div>
-
-            <div id="liveTranscriptContainer"
-                style="margin-top: 20px; padding: 15px; border: 2px solid #6366f1; border-radius: 12px; background: #f5f3ff;">
-                <h3 style="margin-top: 0; color: #4338ca; font-size: 14px;">Live Transcription (Edit to refine summary)
-                </h3>
-                <textarea id="liveTranscript" placeholder="Talk to see the live transcript here, or type manually..."
-                    style="width: 100%; height: 100px; border: 1px solid #c7d2fe; border-radius: 8px; padding: 10px; font-size: 14px; color: #4338ca; background: white; resize: vertical;"></textarea>
-                <p style="font-size: 11px; color: #6366f1; margin-top: 5px;">* Verify your transcript above before
-                    clicking 'Stop & Summarize'.</p>
-            </div>
-
-            <div id="logs"
-                style="margin-top: 20px; font-family: monospace; font-size: 12px; color: #64748b; background: #f8fafc; padding: 10px; border-radius: 8px; max-height: 150px; overflow-y: auto; border: 1px solid #e2e8f0;">
-            </div>
-
-            <div class="visualizer-container">
-                <div class="visualizer-box">
-                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 5px;">LOCAL AUDIO (MIC)</div>
-                    <canvas id="localVisualizer"></canvas>
-                </div>
-                <div class="visualizer-box">
-                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 5px;">REMOTE AUDIO (LIVE)</div>
-                    <canvas id="remoteVisualizer"></canvas>
-                </div>
-            </div>
-
-            <div id="log"></div>
         </div>
+
+        <div class="transcript-box">
+            <div class="transcript-status">
+                <span style="font-weight: 800; color: var(--primary); font-size: 0.9rem;">LIVE TRANSCRIPTION
+                    ENGINE</span>
+                <div id="voiceStatusBadge">
+                    <div id="statusDot" class="pulse-dot"></div>
+                    <span id="statusText">SYSTEM STANDBY</span>
+                </div>
+            </div>
+
+            <textarea id="liveTranscriptArea"
+                placeholder="Click 'Start' and speak clearly. Your words will appear here..."></textarea>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+                <span id="wordCountBadge" class="badge" style="color: var(--text-dim); font-size: 0.8rem;">Words:
+                    0</span>
+                <button id="stopBtn" class="btn btn-stop" disabled>End & Summarize</button>
+            </div>
+        </div>
+
+        <div class="viz-row">
+            <div class="field">
+                <label>Input Level</label>
+                <canvas id="localViz"></canvas>
+            </div>
+            <div class="field">
+                <label>Peer Link</label>
+                <canvas id="remoteViz"></canvas>
+            </div>
+        </div>
+
+        <div id="summaryBox"
+            style="display: none; background: rgba(16, 185, 129, 0.1); border: 2px solid var(--accent); border-radius: 1.5rem; padding: 2rem; margin-top: 1rem;">
+            <h3 style="color: var(--accent); margin-bottom: 1rem;">AI Session Summary</h3>
+            <div id="summaryContent" style="white-space: pre-wrap; font-size: 1.1rem; line-height: 1.7;"></div>
+        </div>
+
+        <div id="logArea"></div>
     </div>
 
     <script>
         const $ = id => document.getElementById(id);
-        const logEl = $('log');
-
-        function log(msg) {
+        const log = (msg) => {
             const entry = document.createElement('div');
-            const time = new Date().toLocaleTimeString();
-            entry.innerHTML = `<span class="log-time">${time}</span> ${msg}`;
-            logEl.appendChild(entry);
-            logEl.scrollTop = logEl.scrollHeight;
-        }
+            entry.innerHTML = `<span style="color: #64748b;">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+            $('logArea').appendChild(entry);
+            $('logArea').scrollTop = $('logArea').scrollHeight;
+            console.log(`[LOG] ${msg}`);
+        };
 
         let ws = null;
         let localStream = null;
-        let peerConnection = null;
+        let pc = null;
+        let recognition = null;
+        let isActive = false;
+        let currentTranscript = "";
         let mySocketId = null;
-        let otherSocketId = null;
-        let mediaRecorder = null;
+        let otherId = null;
+        let audioElements = [];
 
-        const configuration = {
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        };
-
+        // 1. WebSocket Setup
         $('connectBtn').onclick = () => {
             const port = $('serverPort').value;
             const sessionId = $('sessionId').value;
-            const role = $('role').value;
+            const role = $('roleSelect').value;
 
             if (ws) ws.close();
             ws = new WebSocket(`ws://localhost:${port}`);
 
-            $('wsStatus').className = 'status-badge status-connecting';
-            $('wsStatus').innerHTML = '<span class="status-dot"></span> WS CONNECTING';
+            $('statusText').innerText = "CONNECTING WS...";
 
             ws.onopen = () => {
-                log('WebSocket Connected');
-                $('wsStatus').className = 'status-badge status-online';
-                $('wsStatus').innerHTML = '<span class="status-dot"></span> WS CONNECTED';
+                log("System Connected via WebSocket");
+                $('statusText').innerText = "SYSTEM READY";
                 ws.send(JSON.stringify({
                     channel: '/signal',
                     payload: { type: 'join', sessionId, role }
                 }));
-                $('startCallBtn').disabled = false;
+                $('startBtn').disabled = false;
+                $('connectBtn').disabled = true;
             };
 
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
                 if (data.type === 'welcome') {
                     mySocketId = data.socketId;
-                    log(`My ID: ${mySocketId}`);
+                    log(`Identity Confirmed: ${mySocketId}`);
                 } else if (data.channel === '/signal') {
                     handleSignal(data.payload);
-                } else if (data.channel === '/audio') {
-                    handleAudioChannel(data.payload);
+                } else if (data.channel === '/audio' && data.payload.type === 'summary') {
+                    $('summaryBox').style.display = 'block';
+                    $('summaryContent').innerText = data.payload.summary;
+                    log("AI Summary Received");
                 }
-            };
-
-            ws.onclose = () => {
-                $('wsStatus').className = 'status-badge status-offline';
-                $('wsStatus').innerHTML = '<span class="status-dot"></span> WS DISCONNECTED';
             };
         };
 
-        async function handleSignal(payload) {
-            const { type, from, role, offer, answer, candidate } = payload;
-            if (from === mySocketId) return;
-
-            otherSocketId = from;
-            log(`Signal: ${type} from ${from} (${role || 'peer'})`);
-
-            if (type === 'peer-joined') {
-                const myRole = $('role').value;
-                if (myRole === 'teacher' && role === 'student') {
-                    log('Student joined, you can now start the lecture.');
-                }
-            } else if (type === 'offer') {
-                await handleOffer(offer, from);
-            } else if (type === 'answer') {
-                await handleAnswer(answer);
-            } else if (type === 'candidate') {
-                if (peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            }
-        }
-
-        function handleAudioChannel(payload) {
-            if (payload.type === 'summary') {
-                $('summaryBox').style.display = 'block';
-                $('summaryContent').innerText = payload.summary;
-                log('Lecture summary received!');
-                console.log("--- Lecture Transcript ---");
-                console.log(payload.transcript);
-                console.log("--- Lecture Summary ---");
-                console.log(payload.summary);
-            }
-        }
-
-        let recognition = null;
-        let finalTranscript = "";
-        let isLectureActive = false;
-
-        async function startTeacherAudio() {
-            // If already active, just return
-            if (isLectureActive && localStream && localStream.getAudioTracks().some(t => t.readyState === 'live')) {
-                return localStream;
-            }
-
-            try {
-                // If stream exists but lecture wasn't active, ensure it's fresh or reusable
-                if (!localStream || !localStream.getAudioTracks().some(t => t.readyState === 'live')) {
-                    log('Requesting microphone access...');
-                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    log('Mic access granted (Teacher)');
-                    setupVisualizer(localStream, 'localVisualizer', '#6366f1');
-                }
-
-                isLectureActive = true;
-                setupTranscription();
-                return localStream;
-            } catch (e) {
-                log('Error accessing mic: ' + e.message);
-                alert('Microphone access is required for teachers.');
-                throw e;
-            }
-        }
-
-        let recognitionRetryCount = 0;
-        const MAX_RECOGNITION_RETRIES = 3;
-
-        function setupTranscription() {
+        // 2. Transcription Engine (ONE INSTANCE ONLY)
+        function initRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                log('Web Speech API is not supported in this browser.');
-                return;
-            }
+            if (!SpeechRecognition) return null;
 
-            // Create new instance if needed
-            if (recognition) {
-                try { recognition.abort(); } catch (e) { }
-            }
+            const rec = new SpeechRecognition();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
 
-            recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
-
-            recognition.onstart = () => {
-                log('Transcription service: LISTENING');
-                recognitionRetryCount = 0; // Reset on success
-                $('liveTranscriptContainer').style.display = 'block';
-                if ($('liveTranscript').value === 'Waiting for speech...') {
-                    $('liveTranscript').value = '';
-                }
+            rec.onstart = () => {
+                log("Voice Recognition: STARTED");
+                $('statusDot').className = "pulse-dot active";
+                $('statusText').innerText = "LISTENING...";
             };
 
-            recognition.onresult = (event) => {
-                let currentTotal = '';
+            rec.onresult = (event) => {
+                let final = "";
                 for (let i = 0; i < event.results.length; ++i) {
-                    currentTotal += event.results[i][0].transcript + ' ';
+                    final += event.results[i][0].transcript + " ";
                 }
-                finalTranscript = currentTotal.trim();
-                $('liveTranscript').value = finalTranscript;
-                $('liveTranscript').scrollTop = $('liveTranscript').scrollHeight;
+                currentTranscript = final.trim();
+                $('liveTranscriptArea').value = currentTranscript;
+                $('wordCountBadge').innerText = `Words: ${currentTranscript.split(/\s+/).length}`;
             };
 
-            recognition.onerror = (event) => {
-                if (event.error === 'no-speech') return;
-                log('Transcription Error: ' + event.error);
+            rec.onerror = (event) => {
+                log(`Engine Error: ${event.error}`);
                 if (event.error === 'not-allowed') {
-                    isLectureActive = false;
-                    log('Permission denied for Speech Recognition.');
+                    $('statusDot').className = "pulse-dot error";
+                    $('statusText').innerText = "MIC ACCESS DENIED";
                 }
             };
 
-            recognition.onend = () => {
-                if (isLectureActive && recognitionRetryCount < MAX_RECOGNITION_RETRIES) {
-                    recognitionRetryCount++;
-                    log('Restarting transcription... (Attempt ' + recognitionRetryCount + ')');
-                    setTimeout(() => {
-                        if (isLectureActive) try { recognition.start(); } catch (e) { }
-                    }, 1000);
-                } else if (isLectureActive) {
-                    log('Transcription service failed too many times. Manual entry enabled.');
+            rec.onend = () => {
+                if (isActive) {
+                    log("Engine Disconnected. Auto-Restarting...");
+                    try { rec.start(); } catch (e) { }
                 } else {
-                    log('Transcription service stopped.');
+                    log("Engine Shutdown Cleanly");
+                    $('statusDot').className = "pulse-dot";
+                    $('statusText').innerText = "SYSTEM STANDBY";
                 }
             };
+
+            return rec;
+        }
+
+        // 3. Presentation Control
+        $('startBtn').onclick = async () => {
+            const role = $('roleSelect').value;
+            isActive = true;
 
             try {
-                recognition.start();
-            } catch (err) {
-                console.error("Failed to start recognition:", err);
-            }
-
-            ws.send(JSON.stringify({
-                channel: '/audio',
-                payload: { type: 'start', locale: 'en-US' }
-            }));
-        }
-
-        function createPeerConnection(targetId, isTeacher) {
-            if (peerConnection) peerConnection.close();
-            peerConnection = new RTCPeerConnection(configuration);
-
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    ws.send(JSON.stringify({
-                        channel: '/signal',
-                        payload: { type: 'candidate', candidate: event.candidate, targetSocketId: targetId }
-                    }));
+                // STEP 1: Get Mic Stream if teacher
+                if (role === 'teacher') {
+                    log("Initializing Microphone Hardware...");
+                    if (!localStream) {
+                        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        log("Mic Access GRANTED");
+                        setupViz(localStream, 'localViz', '#6366f1');
+                    }
                 }
-            };
 
-            peerConnection.onconnectionstatechange = () => {
-                updateRTCStatus(peerConnection.connectionState);
-            };
+                // STEP 2: Start Recognition
+                if (!recognition) recognition = initRecognition();
+                if (recognition) {
+                    try { recognition.start(); } catch (e) { log("Engine already warm."); }
+                } else {
+                    log("CRITICAL: Browser Speech API missing!");
+                    alert("This browser doesn't support live transcription. Use Chrome.");
+                }
 
-            if (isTeacher) {
-                // Teacher sends audio
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-            } else {
-                // Student only receives
-                peerConnection.addTransceiver('audio', { direction: 'recvonly' });
-                peerConnection.ontrack = (event) => {
-                    log('Live teacher audio received!');
-                    const audio = new Audio();
-                    audio.srcObject = event.streams[0];
-                    audio.play();
-                    setupVisualizer(event.streams[0], 'remoteVisualizer', '#10b981');
-                };
+                $('startBtn').disabled = true;
+                $('stopBtn').disabled = false;
+
+                if (role === 'teacher') {
+                    ws.send(JSON.stringify({ channel: '/audio', payload: { type: 'start', locale: 'en-US' } }));
+                    log("Lecture Broadcast LIVE");
+
+                    // IF A STUDENT IS ALREADY HERE, START THE RTC NOW
+                    if (otherId) {
+                        log("Initiating RTC link with existing peer...");
+                        pc = createPC(otherId);
+                        const offer = await pc.createOffer();
+                        await pc.setLocalDescription(offer);
+                        ws.send(JSON.stringify({
+                            channel: '/signal',
+                            payload: { type: 'offer', offer, targetSocketId: otherId }
+                        }));
+                    }
+                }
+            } catch (err) {
+                log(`Start Failure: ${err.message}`);
+                isActive = false;
             }
-
-            return peerConnection;
-        }
-
-        async function startCall(targetId) {
-            const myRole = $('role').value;
-            if (myRole !== 'teacher') {
-                log('Only teachers can start a lecture.');
-                return;
-            }
-
-            await startTeacherAudio();
-            peerConnection = createPeerConnection(targetId, true);
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-
-            ws.send(JSON.stringify({
-                channel: '/signal',
-                payload: { type: 'offer', offer, targetSocketId: targetId }
-            }));
-
-            $('startCallBtn').disabled = true;
-            $('stopLectureBtn').disabled = false;
-            updateRTCStatus('connecting');
-        }
-
-        async function handleOffer(offer, from) {
-            const myRole = $('role').value;
-            // Unidirectional: Student never captures mic
-            peerConnection = createPeerConnection(from, myRole === 'teacher');
-
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-
-            ws.send(JSON.stringify({
-                channel: '/signal',
-                payload: { type: 'answer', answer, targetSocketId: from }
-            }));
-            log('Answered teacher offer');
-        }
-
-        async function handleAnswer(answer) {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            log('RTC Handshake Complete');
-        }
-
-        function updateRTCStatus(state) {
-            const badge = $('rtcStatus');
-            badge.className = 'status-badge ' + (state === 'connected' ? 'status-online' : (state === 'connecting' ? 'status-connecting' : 'status-offline'));
-            badge.innerHTML = `<span class="status-dot"></span> RTC ${state.toUpperCase()}`;
-        }
-
-        $('startCallBtn').onclick = () => {
-            if (otherSocketId) startCall(otherSocketId);
-            else log('No peer connected yet. Wait for a student to join.');
         };
 
-        $('stopLectureBtn').onclick = () => {
-            const currentTranscript = $('liveTranscript').value || finalTranscript;
+        $('stopBtn').onclick = () => {
+            isActive = false;
+            log("Ending Presentation...");
 
-            if (!currentTranscript || currentTranscript.length < 5) {
-                const proceed = confirm("No transcript has been captured yet. Stop anyway?");
-                if (!proceed) return;
-            }
-
-            log('Stopping lecture and sending transcript...');
-            isLectureActive = false;
             if (recognition) {
                 try { recognition.stop(); } catch (e) { }
             }
@@ -593,37 +476,121 @@
                 payload: { type: 'stop', transcript: currentTranscript }
             }));
 
-            $('stopLectureBtn').disabled = true;
-            if (peerConnection) peerConnection.close();
-
-            // Cleanly stop the mic so the browser icon goes away
             if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
+                localStream.getTracks().forEach(t => t.stop());
                 localStream = null;
             }
 
-            updateRTCStatus('idle');
-            // Keep live transcript box visible for review
-            // $('liveTranscriptContainer').style.display = 'none';
+            $('startBtn').disabled = false;
+            $('stopBtn').disabled = true;
         };
 
-        function setupVisualizer(stream, canvasId, color) {
+        // 4. RTC Signaling
+        async function handleSignal(payload) {
+            const { type, from, offer, answer, candidate } = payload;
+            if (from === mySocketId) return;
+
+            otherId = from;
+            log(`RTC Signal: ${type} from ${from}`);
+            if (type === 'peer-joined') {
+                log(`New Peer joined: ${from}`);
+                // If I am a teacher and active, I should send an offer to the new student
+                if ($('roleSelect').value === 'teacher' && isActive) {
+                    log("Sending offer to new peer...");
+                    pc = createPC(from);
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    ws.send(JSON.stringify({
+                        channel: '/signal',
+                        payload: { type: 'offer', offer, targetSocketId: from }
+                    }));
+                }
+            } else if (type === 'offer') {
+                log("RTC Offer Received");
+                pc = createPC(from);
+                await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                const ans = await pc.createAnswer();
+                await pc.setLocalDescription(ans);
+                ws.send(JSON.stringify({ channel: '/signal', payload: { type: 'answer', answer: ans, targetSocketId: from } }));
+            } else if (type === 'answer') {
+                log("RTC Answer Received");
+                if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            } else if (type === 'candidate') {
+                if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+        }
+
+        function createPC(targetId) {
+            if (pc) pc.close();
+            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+
+            pc.onicecandidate = (e) => {
+                if (e.candidate) {
+                    ws.send(JSON.stringify({ channel: '/signal', payload: { type: 'candidate', candidate: e.candidate, targetSocketId: targetId } }));
+                }
+            };
+
+            pc.oniceconnectionstatechange = () => {
+                log(`ICE State: ${pc.iceConnectionState}`);
+            };
+
+            pc.onconnectionstatechange = () => {
+                log(`Connection State: ${pc.connectionState}`);
+            };
+
+            const role = $('roleSelect').value;
+            if (role === 'teacher' && localStream) {
+                localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            } else {
+                pc.ontrack = (e) => {
+                    log("REMOTE TRACK RECEIVED! Creating audio...");
+                    const audio = new Audio();
+                    audio.srcObject = e.streams[0];
+                    audio.autoplay = true;
+
+                    // Show unmute button for browser policy
+                    $('unmuteBtn').style.display = 'block';
+                    $('unmuteBtn').onclick = () => {
+                        audio.play().then(() => {
+                            log("Audio Playing Successfully");
+                            $('unmuteBtn').style.display = 'none';
+                        }).catch(err => log("Playback error: " + err.message));
+                    };
+
+                    // Try auto-play
+                    audio.play().then(() => {
+                        log("Auto-play Success");
+                        $('unmuteBtn').style.display = 'none';
+                    }).catch(err => {
+                        log("Browser blocked auto-play. Please click 'Unmute Audio'.");
+                    });
+
+                    audioElements.push(audio);
+                    setupViz(e.streams[0], 'remoteViz', '#10b981');
+                };
+            }
+            return pc;
+        }
+
+        function setupViz(stream, canvasId, color) {
             const canvas = $(canvasId);
             const ctx = canvas.getContext('2d');
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioCtx = new AudioContext();
             const source = audioCtx.createMediaStreamSource(stream);
             const analyser = audioCtx.createAnalyser();
             analyser.fftSize = 64;
             source.connect(analyser);
             const data = new Uint8Array(analyser.frequencyBinCount);
+
             function draw() {
+                if (!stream.active) return;
                 requestAnimationFrame(draw);
                 analyser.getByteFrequencyData(data);
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 const w = canvas.width / data.length;
                 data.forEach((v, i) => {
                     ctx.fillStyle = color;
-                    ctx.fillRect(i * w, canvas.height - v / 4, w - 1, v / 4);
+                    ctx.fillRect(i * w, canvas.height - (v / 255) * canvas.height, w - 2, (v / 255) * canvas.height);
                 });
             }
             draw();

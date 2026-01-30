@@ -2,9 +2,8 @@ import type { WebSocket } from "ws";
 import { getSessionForSocket } from "../sessions/join";
 import { RelayAudioService } from "../webrtc/relayAudioService";
 
-// Initialize the relay service (Use env for API key)
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "YOUR_GEMINI_API_KEY";
-const relayService = new RelayAudioService(GEMINI_API_KEY);
+// We create the service but will refresh the key if needed inside handle
+const relayService = new RelayAudioService(process.env.GEMINI_API_KEY || "YOUR_GEMINI_API_KEY");
 
 export function handle(ws: WebSocket, payload: unknown) {
     try {
@@ -32,6 +31,11 @@ export function handle(ws: WebSocket, payload: unknown) {
                 // Print the transcript to the server console as requested
                 console.log(`\n--- RECEIVED TRANSCRIPT for ${sessionId} ---\n${transcript}\n----------------------------------\n`);
 
+                // Late-bind the API key in case process.env was loaded after relayService initialization
+                if ((relayService as any).geminiApiKey === "YOUR_GEMINI_API_KEY") {
+                    (relayService as any).geminiApiKey = process.env.GEMINI_API_KEY;
+                }
+
                 relayService.finalizeSession(sessionId, transcript).then((result) => {
                     if (result) {
                         console.log(`[Audio] Gemini summary generated for ${sessionId}`);
@@ -47,8 +51,6 @@ export function handle(ws: WebSocket, payload: unknown) {
                 break;
 
             case "chunk":
-                // Chunks are no longer used as we pass the full transcript at the end.
-                // This case is kept for compatibility with existing client calls during transition.
                 break;
 
             default:

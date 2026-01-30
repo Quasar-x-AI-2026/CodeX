@@ -56,11 +56,11 @@ export class RelayAudioService {
         // Note: Full transcript is also printed in the WebSocket handler for visibility.
 
         try {
-            if (!this.geminiApiKey || this.geminiApiKey === "YOUR_GEMINI_API_KEY") {
-                throw new Error("Gemini API Key is not configured on the server.");
+            if (!this.geminiApiKey || this.geminiApiKey === "YOUR_GEMINI_API_KEY" || this.geminiApiKey === "YOUR_GEMINI_API_KEY_HERE") {
+                throw new Error("Gemini API Key is still set to placeholder. Please update .env with a valid key from Google AI Studio.");
             }
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiApiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite-preview-02-05:generateContent?key=${this.geminiApiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
