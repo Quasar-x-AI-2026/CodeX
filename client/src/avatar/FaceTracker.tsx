@@ -10,6 +10,7 @@ export type FaceControlPayload = {
 
 let faceMesh = null;
 let camera = null;
+let photoTimer: number | null = null;
 let videoEl = null;
 let running = false;
 let lastEmit = 0;
@@ -94,6 +95,8 @@ function computeControls(landmarks: Array<{ x: number; y: number; z?: number }>)
   return { headYaw, headPitch, mouthOpen, eyeBlink };
 }
 
+import { computeControlsFromLandmarks } from "./landmarks";
+
 async function ensureFaceMesh() {
   if (faceMesh) return faceMesh;
 
@@ -115,9 +118,13 @@ async function ensureFaceMesh() {
  * startTracking(callback)
  * - callback will be called with { headYaw, headPitch, mouthOpen, eyeBlink }
  */
-export async function startTracking(callback: (payload: FaceControlPayload) => void, opts?: { previewContainer?: HTMLElement | null; showVideo?: boolean; }): Promise<HTMLVideoElement | null> {
+export async function startTracking(callback: (payload: FaceControlPayload) => void, opts?: { previewContainer?: HTMLElement | null; showVideo?: boolean; onLandmarks?: (lm: Array<{x:number;y:number;z?:number}>) => void; onPhoto?: (dataUrl: string, w:number, h:number) => void; photoIntervalMs?: number; landmarkSendIntervalMs?: number; }): Promise<HTMLVideoElement | null> {
   if (running) return null;
   curCallback = callback;
+
+  const photoIntervalMs = opts?.photoIntervalMs ?? 30000;
+  const landmarkSendIntervalMs = opts?.landmarkSendIntervalMs ?? 100; // 10fps
+  let lastLandmarkSent = 0; 
 
   try {
     await ensureFaceMesh();
@@ -179,7 +186,7 @@ export async function startTracking(callback: (payload: FaceControlPayload) => v
     }
 
     
-    const payload = computeControls(landmarks);
+    const payload = computeControlsFromLandmarks(landmarks as any);
 
     
     lastHadFace = true;
@@ -191,6 +198,14 @@ export async function startTracking(callback: (payload: FaceControlPayload) => v
       
       console.warn('FaceTracker callback error', e);
     }
+
+    
+    try {
+      if (opts?.onLandmarks && now - lastLandmarkSent >= landmarkSendIntervalMs) {
+        lastLandmarkSent = now;
+        try { opts.onLandmarks(landmarks as any); } catch (e) { /* ignore */ }
+      }
+    } catch (e) {}
   });
 
   try {
@@ -209,6 +224,49 @@ export async function startTracking(callback: (payload: FaceControlPayload) => v
     });
 
     await camera.start();
+
+    
+    if (opts?.onPhoto) {
+      try {
+        
+        try {
+          const vw = videoEl?.videoWidth || (videoEl as HTMLVideoElement).clientWidth || 320;
+          const vh = videoEl?.videoHeight || (videoEl as HTMLVideoElement).clientHeight || 240;
+          const c0 = document.createElement('canvas');
+          c0.width = vw;
+          c0.height = vh;
+          const ctx0 = c0.getContext('2d');
+          if (ctx0) {
+            ctx0.drawImage(videoEl as HTMLVideoElement, 0, 0, vw, vh);
+            const data0 = c0.toDataURL('image/png');
+            try { opts.onPhoto?.(data0, vw, vh); } catch (e) {}
+          }
+        } catch (e) {
+          console.warn('FaceTracker immediate photo capture failed', e);
+        }
+
+        photoTimer = window.setInterval(() => {
+          try {
+            const vw = videoEl?.videoWidth || (videoEl as HTMLVideoElement).clientWidth || 320;
+            const vh = videoEl?.videoHeight || (videoEl as HTMLVideoElement).clientHeight || 240;
+            const c = document.createElement('canvas');
+            c.width = vw;
+            c.height = vh;
+            const ctx = c.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(videoEl as HTMLVideoElement, 0, 0, vw, vh);
+              const data = c.toDataURL('image/png');
+              try { opts.onPhoto?.(data, vw, vh); } catch (e) {}
+            }
+          } catch (e) {
+            console.warn('FaceTracker photo capture failed', e);
+          }
+        }, photoIntervalMs);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     running = true;
   } catch (e) {
     
@@ -230,6 +288,10 @@ export function stopTracking() {
   } catch (e) {
     console.warn('FaceTracker camera stop failed', e);
   }
+
+  try { if (photoTimer != null) { clearInterval(photoTimer); } } catch (e) { console.warn('FaceTracker clear photo timer failed', e); }
+  photoTimer = null;
+
   camera = null;
 
   if (videoEl) {

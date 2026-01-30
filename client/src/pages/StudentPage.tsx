@@ -1,5 +1,6 @@
 import React from "react";
 import AvatarCanvas from "../avatar/AvatarCanvas";
+import AvatarDebug from "../avatar/AvatarDebug";
 import { useEffect } from "react";
 import { sendMessage } from "../ws/socket";
 import useSession from "../state/session";
@@ -51,10 +52,11 @@ export default function StudentPage({ onLeave, boardView }: Props) {
             </div>
           </section>
 
-          <aside className="bg-white border rounded-lg p-4">
+          <aside className="bg-white border rounded-lg p-4 relative">
             <h3 className="font-medium mb-3">Teacher Avatar</h3>
-            <div className="h-96 flex items-center justify-center">
-              <AvatarCanvas width={260} height={260} />
+            <div className="h-96 flex items-center justify-center relative">
+              <AvatarCanvas width={260} height={260} meshScale={3.5} />
+              <AvatarDebug />
             </div>
           </aside>
         </main>

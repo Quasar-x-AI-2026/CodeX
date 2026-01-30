@@ -81,7 +81,7 @@ export default function BoardCanvas({ className }: { className?: string }) {
         const off = onPatch((p: PatchPayload) => {
             try {
                 if (!p || !p.image) return;
-
+                try { console.debug && console.debug("BoardCanvas: received patch", { x: p.x, y: p.y, w: p.w, h: p.h, imgLen: p.image.length }); } catch (e) { }
                 pending.push(p);
             } catch (e) {
                 console.warn("BoardCanvas: onPatch handler error", e);
@@ -106,7 +106,9 @@ export default function BoardCanvas({ className }: { className?: string }) {
                                     const buf = ensureBuffer(p.x + p.w, p.y + p.h);
                                     const bctx = buf.getContext("2d");
                                     if (!bctx) return resolve();
+                                    try { console.debug && console.debug("BoardCanvas: applying patch to buffer", { x: p.x, y: p.y, w: p.w, h: p.h }); } catch (e) { }
                                     bctx.drawImage(img, 0, 0, img.width, img.height, p.x, p.y, p.w, p.h);
+                                    try { console.debug && console.debug("BoardCanvas: applied patch"); } catch (e) { }
                                 } catch (e) {
                                     console.warn("BoardCanvas: failed to apply patch", e);
                                 }
@@ -129,7 +131,7 @@ export default function BoardCanvas({ className }: { className?: string }) {
         }
 
 
-        const intervalMs = 1000;
+        const intervalMs = 200;
         const intervalId = setInterval(flushPending, intervalMs);
 
 
@@ -153,23 +155,23 @@ export default function BoardCanvas({ className }: { className?: string }) {
         return () => {
             try { off(); } catch (e) {
                 console.warn("BoardCanvas: failed to unregister onPatch handler", e);
-             }
-            try { clearInterval(intervalId); } catch (e) { 
+            }
+            try { clearInterval(intervalId); } catch (e) {
                 console.warn("BoardCanvas: failed to clear interval", e);
             }
             try { window.removeEventListener("visibilitychange", onVisibility); } catch (e) {
                 console.warn("BoardCanvas: failed to remove visibilitychange listener", e);
-             }
-            try { window.removeEventListener("beforeunload", onVisibility); } catch (e) { 
+            }
+            try { window.removeEventListener("beforeunload", onVisibility); } catch (e) {
                 console.warn("BoardCanvas: failed to remove beforeunload listener", e);
             }
             // eslint-disable-next-line react-hooks/exhaustive-deps
-            try { if (ro && containerRef.current) ro.unobserve(containerRef.current); } catch (e) { 
+            try { if (ro && containerRef.current) ro.unobserve(containerRef.current); } catch (e) {
                 console.warn("BoardCanvas: failed to unobserve resize observer", e);
             }
             try { window.removeEventListener("resize", drawBufferToCanvas); } catch (e) {
                 console.warn("BoardCanvas: failed to remove resize listener", e);
-             }
+            }
         };
     }, []);
 

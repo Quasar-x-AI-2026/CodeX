@@ -23,7 +23,10 @@ export function sendAvatar(payload: AvatarPayload) {
 
     // dev debug
     try { console.debug("ws.avatar: sending", toSend); } catch (e) {}
-    sendMessage({ type: "avatar", payload: toSend });
+    const ok = sendMessage({ type: "avatar", payload: toSend });
+    if (!ok) {
+      try { console.warn("ws.avatar: dropped send — socket not open or failed"); } catch (e) {}
+    }
   });
 }
 

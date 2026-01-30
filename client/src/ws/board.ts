@@ -18,6 +18,8 @@ addHandler("board.patch", (msg: Record<string, unknown>) => {
   const payload = msg?.payload as PatchPayload | undefined;
   if (!payload) return;
 
+  try { console.debug && console.debug("ws.board: incoming patch", { x: payload.x, y: payload.y, w: payload.w, h: payload.h, imgLen: payload.image ? String(payload.image.length) : 0 }); } catch (e) {}
+
   for (const cb of Array.from(listeners)) {
     try {
       cb(payload);

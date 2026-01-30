@@ -77,6 +77,11 @@ function connect() {
             }
           }
 
+          
+          if (ch === "/avatar") {
+            try { console.debug("ws.socket: /avatar", payload, "from", data.from); } catch (e) {}
+          }
+
           const chKey = ch.replace(/^\//, "");
           if (handlers.has(chKey)) {
             for (const h of handlers.get(chKey) ?? []) {

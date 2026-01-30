@@ -27,9 +27,17 @@ function safeSend(ws: WebSocket, message: unknown) {
 
 export function sendTo(socketId: string, message: unknown) {
   const ws = get(socketId);
-  if (!ws) return false;
-  safeSend(ws, message);
-  return true;
+  if (!ws) {
+    console.warn("ws.registry: socket not found", socketId, message);
+    return false;
+  }
+  try {
+    safeSend(ws, message);
+    return true;
+  } catch (e) {
+    console.warn("ws.registry: failed to send to", socketId, e);
+    return false;
+  }
 }
 
 export function sendMany(socketIds: string[] | Iterable<string>, message: unknown) {

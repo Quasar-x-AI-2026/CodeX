@@ -11,6 +11,7 @@ import { startTracking, stopTracking } from './avatar/FaceTracker';
 import controllers from './avatar/utils/controllers';
 import { sendPatch } from './ws/board';
 import { sendAvatar } from './ws/avatar';
+import { sendMessage } from './ws/socket';
 import type { NormalizedROI } from './board/BordROISelector';
 
 function RouterChildren() {
@@ -55,7 +56,7 @@ function RouterChildren() {
 
 
     try {
-      await startTracking((payload) => { sendAvatar(payload); try { controllers.updateControls(payload); } catch (e) { /* ignore */ } }, { previewContainer: avatarPreviewRef.current });
+      await startTracking((payload) => { sendAvatar(payload); try { try { console.debug && console.debug("FaceTracker: local payload", payload); } catch (e) {} controllers.updateControls(payload); } catch (e) { /* ignore */ } }, { previewContainer: avatarPreviewRef.current, onLandmarks: (lm) => { try { sendMessage({ type: 'avatar', payload: { landmarks: lm } }); } catch (e) { console.warn('failed sending landmarks', e); } }, onPhoto: (dataUrl, w, h) => { try { sendMessage({ type: 'avatar', payload: { photo: dataUrl, w, h } }); } catch (e) { console.warn('failed sending photo', e); } } });
     } catch (e) {
 
       try { if (boardCtrlRef.current) boardCtrlRef.current.stop(); } catch (ex) {
