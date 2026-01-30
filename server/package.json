@@ -4,17 +4,20 @@
   "type": "module",
   "private": true,
   "dependencies": {
+    "dotenv": "^16.4.1",
     "express": "^4.18.2",
-    "ws": "^8.16.0",
     "uuid": "^9.0.1",
-    "dotenv": "^16.4.1"
+    "ws": "^8.16.0"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/express": "^5.0.6",
+    "@types/uuid": "^11.0.0",
+    "@types/ws": "^8.18.1"
   },
   "peerDependencies": {
-    "typescript": "^5",
+    "nodemon": "^2.0.22",
     "ts-node": "10.9.2",
-    "nodemon": "^2.0.22"
+    "typescript": "^5"
   }
 }
