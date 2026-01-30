@@ -1,4 +1,4 @@
-import diffFrames, { DiffOptions, DiffBox } from "./diff";
+import diffFrames, { DiffOptions, DiffBox, detectBoardROI, calculateIoU } from "./diff";
 
 export type ROI = { x: number; y: number; w: number; h: number };
 
@@ -111,9 +111,11 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
   offscreenCtx = offscreenCanvas.getContext("2d");
 
   let roi: ROI | null = initialRoi ? normalizeROI(initialRoi) : null;
+  let manualRoiSelected = !!initialRoi;
 
   function setROI(r: ROI | null) {
     roi = r ? normalizeROI(r) : null;
+    manualRoiSelected = true;
   }
 
   function normalizeROI(r: ROI) {
@@ -124,6 +126,7 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
   }
 
   let lastCaptureTime = 0;
+  let lastDetectionTime = 0;
   const interval = 1000 / fps;
 
   async function captureFrame() {
@@ -181,6 +184,58 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
     }
 
     const img = offscreenCtx.getImageData(0, 0, dw, dh);
+
+
+
+    // Auto-detection logic (Periodic, full-frame, stabilized)
+    if (!manualRoiSelected && now - lastDetectionTime > 2000) {
+      lastDetectionTime = now;
+
+      // We need to capture the *full* frame for detection, regardless of current ROI.
+      // Since videoEl is available, we can draw it to a separate small canvas for detection.
+      const detectScale = Math.min(1, 640 / Math.max(videoEl.videoWidth, videoEl.videoHeight));
+      const detW = Math.max(1, Math.round(videoEl.videoWidth * detectScale));
+      const detH = Math.max(1, Math.round(videoEl.videoHeight * detectScale));
+
+      const detCanvas = document.createElement("canvas");
+      detCanvas.width = detW;
+      detCanvas.height = detH;
+      const detCtx = detCanvas.getContext("2d");
+
+      if (detCtx) {
+        detCtx.drawImage(videoEl, 0, 0, detW, detH);
+        const detImg = detCtx.getImageData(0, 0, detW, detH);
+
+        detectBoardROI(detImg).then((box) => {
+          if (!box || manualRoiSelected) return;
+
+          // Convert box back to normalized coordinates
+          const normX = box.x / detW;
+          const normY = box.y / detH;
+          const normW = box.width / detW;
+          const normH = box.height / detH;
+
+          const newRoi: ROI = { x: normX, y: normY, w: normW, h: normH };
+
+          // Stabilization: Check overlap with current ROI
+          if (roi) {
+            const currentAsBox: DiffBox = { x: roi.x, y: roi.y, width: roi.w, height: roi.h };
+            const newAsBox: DiffBox = { x: newRoi.x, y: newRoi.y, width: newRoi.w, height: newRoi.h };
+            const iou = calculateIoU(currentAsBox, newAsBox);
+
+            // If highly overlapping (> 85%), assume it's the same object and don't jitter.
+            if (iou > 0.85) {
+              console.log("ROI stabilized, skipping update (IoU: " + iou.toFixed(2) + ")");
+              return;
+            }
+          }
+
+          console.log("Updating ROI from auto-detection", newRoi);
+          roi = newRoi;
+        });
+      }
+    }
+
     for (let i = 0; i < img.data.length; i += 4) {
       const r = img.data[i];
       const g = img.data[i + 1];

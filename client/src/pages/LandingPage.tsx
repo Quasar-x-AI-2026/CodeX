@@ -12,7 +12,9 @@ export default function LandingPage({ onSelectRole }: Props) {
     onSelectRole("teacher");
     nav("/teacher");
   }
+ 
 
+  
   const handleStudentClick = () => {
     onSelectRole("student");
     nav("/student");

@@ -327,110 +327,15 @@ class WebGLAvatarRenderer {
 
     gl.useProgram(this.program);
 
-    // If we have landmarks, use them for mesh rendering
-    if (landmarks && landmarks.length > 0 && this.texture) {
-      this.renderTexturedMesh(gl, pose, landmarks, meshScale);
+    // Always try to render with texture if available, otherwise render fallback
+    if (this.texture) {
+      this.renderTexturedQuad(gl, pose);
     } else {
-      // Fallback: render simple textured quad
-      this.renderSimpleQuad(gl, pose);
+      this.renderFallback(gl, pose);
     }
   }
 
-  private renderTexturedMesh(gl: WebGLRenderingContext, pose: AvatarPose, landmarks: Array<{ x: number; y: number; z?: number }>, meshScale: number) {
-    // For simplicity, we'll use a subset of landmarks to create a basic face mesh
-    // In a full implementation, you'd use proper triangulation indices
-
-    // Select key facial landmarks (simplified approach)
-    const keyLandmarks = [
-      landmarks[10], // forehead center
-      landmarks[152], // chin
-      landmarks[234], // left cheek
-      landmarks[454], // right cheek
-      landmarks[1],   // left eye inner
-      landmarks[5],   // right eye inner
-      landmarks[13],  // left eye outer
-      landmarks[14],  // right eye outer
-      landmarks[61],  // mouth left
-      landmarks[291], // mouth right
-      landmarks[0],   // nose tip
-    ].filter(lm => lm); // filter out any undefined landmarks
-
-    if (keyLandmarks.length < 6) return; // not enough landmarks
-
-    // Create positions from landmarks
-    const positions: number[] = [];
-    const uvs: number[] = [];
-
-    // Scale and center the landmarks
-    const mScale = (typeof meshScale === 'number' && meshScale > 0) ? meshScale : 1.0;
-    const scale = Math.min(this.width, this.height) * 0.3 * mScale / this.width;
-
-    keyLandmarks.forEach((lm, i) => {
-      // Convert landmark coordinates to clip space
-      const x = (lm.x - 0.5) * 2 * scale;
-      const y = (lm.y - 0.5) * 2 * scale;
-
-      positions.push(x, y);
-
-      // Simple UV mapping based on position
-      uvs.push(lm.x, 1 - lm.y); // flip Y for texture coordinates
-    });
-
-    // Simple triangulation (very basic)
-    const indices: number[] = [];
-    for (let i = 1; i < keyLandmarks.length - 1; i++) {
-      indices.push(0, i, i + 1);
-    }
-
-    // Update buffers
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.DYNAMIC_DRAW);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.DYNAMIC_DRAW);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.DYNAMIC_DRAW);
-
-    // Set up attributes
-    const positionLocation = gl.getAttribLocation(this.program, 'a_position');
-    const texCoordLocation = gl.getAttribLocation(this.program, 'a_texCoord');
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
-    gl.enableVertexAttribArray(texCoordLocation);
-    gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
-
-    // Set up texture
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.texture);
-    const textureLocation = gl.getUniformLocation(this.program, 'u_texture');
-    gl.uniform1i(textureLocation, 0);
-
-    // Create transformation matrix with pose
-    const matrixLocation = gl.getUniformLocation(this.program, 'u_matrix');
-    const rotationY = pose.rotation.y * 0.3;
-    const rotationX = pose.rotation.x * 0.2;
-
-    const matrix = [
-      Math.cos(rotationY) * scale, -Math.sin(rotationY) * scale, 0,
-      Math.sin(rotationY) * scale, Math.cos(rotationY) * scale, 0,
-      0, 0, 1
-    ];
-
-    gl.uniformMatrix3fv(matrixLocation, false, matrix);
-
-    // Draw
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
-  }
-
-  private renderSimpleQuad(gl: WebGLRenderingContext, pose: AvatarPose) {
-    if (!this.texture) return;
-
+  private renderTexturedQuad(gl: WebGLRenderingContext, pose: AvatarPose) {
     // Set up attributes
     const positionLocation = gl.getAttribLocation(this.program, 'a_position');
     const texCoordLocation = gl.getAttribLocation(this.program, 'a_texCoord');
@@ -472,6 +377,13 @@ class WebGLAvatarRenderer {
     // Draw
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
     gl.drawElements(gl.TRIANGLES, this.vertexCount, gl.UNSIGNED_SHORT, 0);
+  }
+
+  private renderFallback(gl: WebGLRenderingContext, pose: AvatarPose) {
+    // Render a simple colored ellipse as fallback when no texture is available
+    // For now, we'll just clear to a skin color
+    gl.clearColor(0.96, 0.87, 0.70, 1); // Skin color
+    gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
   dispose() {

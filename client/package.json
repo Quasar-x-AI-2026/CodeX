@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/drawing_utils": "^0.3.1625147224",
+    "@mediapipe/face_mesh": "^0.4.1646424915",
     "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -40,6 +43,8 @@
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tanstack/react-query": "^5.83.0",
+    "@tensorflow-models/coco-ssd": "^2.2.3",
+    "@tensorflow/tfjs": "^4.22.0",
     "axios": "^1.13.2",
     "baseline-browser-mapping": "^2.9.14",
     "caniuse-lite": "^1.0.30001764",
@@ -48,7 +53,9 @@
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
+    "idb": "7.1.1",
     "input-otp": "^1.4.2",
+    "lodash.throttle": "4.1.1",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "postgres-error-codes": "^0.0.3",
@@ -64,13 +71,7 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
-    "zustand": "^5.0.10",
-
-    "@mediapipe/camera_utils": "^0.3.1675466862",
-    "@mediapipe/drawing_utils": "^0.3.1625147224",
-    "@mediapipe/face_mesh": "^0.4.1646424915",
-    "idb": "7.1.1",
-    "lodash.throttle": "4.1.1"
+    "zustand": "^5.0.10"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
