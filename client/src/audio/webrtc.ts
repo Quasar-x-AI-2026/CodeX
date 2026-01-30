@@ -1,9 +1,5 @@
-import {
-  Answer,
-  IceCandidateMessage,
-  Offer,
-  SignalingMessage,
-} from "./webrtctypes";
+import { Answer, IceCandidateMessage, Offer, SignalingMessage,  } from "./webRtcTypes";
+
 
 const DEFAULT_STUN = [{ urls: "stun:stun.l.google.com:19302" }];
 
@@ -144,13 +140,32 @@ export class TeacherAudioManager {
   async addStudent(targetSocketId: string) {
     if (this.pcs.has(targetSocketId)) return;
 
-    const stream = await this.ensureLocalStream();
-    const { pc, addIceCandidate, flushQueue } = createPC(
-      this.options,
-      targetSocketId
-    );
+    await this.ensureLocalStream();
 
-    stream.getAudioTracks().forEach((t) => pc.addTrack(t, stream));
+    const { pc, addIceCandidate, flushQueue } = createPC(this.options, targetSocketId);
+
+    
+    if (this.localStream) {
+      for (const t of this.localStream.getAudioTracks()) pc.addTrack(t, this.localStream);
+    }
+
+    
+    const caps = RTCRtpSender.getCapabilities?.("audio");
+    if (caps && caps.codecs) {
+      const opusCodecs = caps.codecs.filter((c) => c.mimeType.toLowerCase().includes("opus"));
+      if (opusCodecs.length > 0) {
+        try {
+          const transceivers = pc.getTransceivers();
+          for (const tr of transceivers) {
+            if (tr.receiver && tr.receiver.track && tr.receiver.track.kind === "audio") continue;
+            
+            if (typeof (tr ).setCodecPreferences === "function") (tr ).setCodecPreferences(opusCodecs);
+          }
+        } catch (e) {
+          this.log("setCodecPreferences failed", e);
+        }
+      }
+    }
 
     pc.onconnectionstatechange = () => {
       if (
@@ -193,7 +208,15 @@ export class TeacherAudioManager {
 
   async handleIce(fromSocketId: string, candidate: RTCIceCandidateInit) {
     const ent = this.pcs.get(fromSocketId);
-    if (ent) await ent.addIceCandidate(candidate);
+    if (!ent) return;
+    await ent.addIceCandidate(candidate);
+  }
+
+  async removeStudent(targetSocketId: string) {
+    const ent = this.pcs.get(targetSocketId);
+    if (!ent) return;
+    try { ent.pc.close(); } catch {};
+    this.pcs.delete(targetSocketId);
   }
 
   async attemptRestart(targetSocketId: string) {
@@ -222,17 +245,45 @@ export class TeacherAudioManager {
         targetSocketId,
       });
     } catch (e) {
-      setTimeout(
-        () => this.attemptRestart(targetSocketId),
-        ent.restartAttempts * 1000
-      );
+      this.log("ice restart failed", e);
+      
+      setTimeout(() => this.attemptRestart(targetSocketId), 1000 * ent.restartAttempts);
+    }
+  }
+
+  async handleWorkerOffer(fromSocketId: string, offer: RTCSessionDescriptionInit) {
+    
+    const ent = this.pcs.get(fromSocketId);
+    if (!ent) {
+      
+      await this.addStudent(fromSocketId);
+    }
+    const e = this.pcs.get(fromSocketId);
+    if (!e) return;
+    try {
+      await e.pc.setRemoteDescription(offer);
+      const answer = await e.pc.createAnswer();
+      const sdpStr = preferOpus(answer.sdp ?? "");
+      await e.pc.setLocalDescription({ type: answer.type, sdp: sdpStr });
+      const msg: Answer = { type: "sdp", sdpType: "answer", sdp: e.pc.localDescription as RTCSessionDescriptionInit, recipient: "students", targetSocketId: fromSocketId };
+      this.options.send(msg);
+    } catch (ex) {
+      this.log("handleWorkerOffer error", ex);
+    }
+  }
+
+  async close() {
+    for (const [k, v] of this.pcs.entries()) {
+      try { v.pc.close(); } catch {}
+      this.pcs.delete(k);
+    }
+    if (this.localStream) {
+      for (const t of this.localStream.getTracks()) t.stop();
+      this.localStream = null;
     }
   }
 }
 
-/* =======================
-   STUDENT AUDIO MANAGER
-   ======================= */
 
 export class StudentAudioManager {
   private options: PeerOptions;
@@ -248,7 +299,11 @@ export class StudentAudioManager {
   }
 
   async handleOffer(fromSocketId: string, offer: RTCSessionDescriptionInit) {
-    this.pcEntry?.pc.close();
+    
+    if (this.pcEntry) {
+      try { this.pcEntry.pc.close(); } catch {}
+      this.pcEntry = undefined;
+    }
 
     const { pc, addIceCandidate, flushQueue } = createPC(
       this.options,
@@ -264,24 +319,37 @@ export class StudentAudioManager {
       }
     };
 
-    pc.addTransceiver("audio", { direction: "recvonly" });
+    
+    const caps = RTCRtpSender.getCapabilities?.("audio");
+    if (caps && caps.codecs) {
+      const opusCodecs = caps.codecs.filter((c) => c.mimeType.toLowerCase().includes("opus"));
+      if (opusCodecs.length > 0) {
+        try {
+          const transceiver = pc.addTransceiver("audio", { direction: "recvonly" });
+          if (typeof (transceiver ).setCodecPreferences === "function") (transceiver ).setCodecPreferences(opusCodecs);
+        } catch (e) {
+          this.log("setCodecPreferences failed on recv", e);
+        }
+      } else {
+        pc.addTransceiver("audio", { direction: "recvonly" });
+      }
+    } else {
+      pc.addTransceiver("audio", { direction: "recvonly" });
+    }
 
-    await pc.setRemoteDescription(offer);
-    await flushQueue();
+    
 
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription({
-      type: answer.type,
-      sdp: preferOpus(answer.sdp ?? ""),
-    });
-
-    safeSend(this.options, {
-      type: "sdp",
-      sdpType: "answer",
-      sdp: pc.localDescription!,
-      recipient: "teacher",
-      targetSocketId: fromSocketId,
-    });
+    try {
+      await pc.setRemoteDescription(offer);
+      await flushQueue();
+      const answer = await pc.createAnswer();
+      const sdpStr = preferOpus(answer.sdp ?? "");
+      await pc.setLocalDescription({ type: answer.type, sdp: sdpStr });
+      const msg: Answer = { type: "sdp", sdpType: "answer", sdp: pc.localDescription as RTCSessionDescriptionInit, recipient: "teacher", targetSocketId: fromSocketId };
+      this.options.send(msg);
+    } catch (e) {
+      this.log("handleOffer error", e);
+    }
 
     this.pcEntry = {
       pc,
@@ -298,34 +366,88 @@ export class StudentAudioManager {
   async attemptRestart(teacherSocketId: string) {
     if (!this.pcEntry) return;
     const ent = this.pcEntry;
-
-    if (ent.restartAttempts++ >= 3) {
-      ent.pc.close();
+    if (ent.restartAttempts >= 3) {
+      this.log("recreate pc after repeated failures");
+      try { ent.pc.close(); } catch {}
       this.pcEntry = undefined;
       return;
     }
 
     try {
       const offer = await ent.pc.createOffer({ iceRestart: true });
-      await ent.pc.setLocalDescription({
-        type: offer.type,
-        sdp: preferOpus(offer.sdp ?? ""),
-      });
-
-      safeSend(this.options, {
-        type: "sdp",
-        sdpType: "offer",
-        sdp: ent.pc.localDescription!,
-        recipient: "teacher",
-        targetSocketId: teacherSocketId,
-      });
-    } catch {
-      setTimeout(
-        () => this.attemptRestart(teacherSocketId),
-        ent.restartAttempts * 1000
-      );
+      const sdpStr = preferOpus(offer.sdp ?? "");
+      await ent.pc.setLocalDescription({ type: offer.type, sdp: sdpStr });
+      const msg: Offer = { type: "sdp", sdpType: "offer", sdp: ent.pc.localDescription as RTCSessionDescriptionInit, recipient: "teacher", targetSocketId: teacherSocketId };
+      this.options.send(msg);
+    } catch (e) {
+      this.log("attemptRestart failed", e);
+      setTimeout(() => this.attemptRestart(teacherSocketId), 1000 * ent.restartAttempts);
     }
   }
+
+  async close() {
+    if (!this.pcEntry) return;
+    try { this.pcEntry.pc.close(); } catch {}
+    this.pcEntry = undefined;
+  }
 }
+
+let peerConnection: RTCPeerConnection | null = null;
+let microphoneStream: MediaStream | null = null;
+const sessionId: string | null = null;
+const role: 'teacher' | 'student' | null = null;
+let negotiationAttempts = 0;
+const maxNegotiationAttempts = 3;
+const retryDelay = 1000; 
+
+function createPeerConnection() {
+    if (peerConnection) {
+        peerConnection.close(); 
+    }
+    peerConnection = new RTCPeerConnection({ iceServers: DEFAULT_STUN });
+
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {  }
+    };
+
+    peerConnection.ontrack = (event) => {
+        
+    };
+}
+
+function reconnectWebSocket() {
+    
+    createPeerConnection();
+    if (role === 'teacher' && !microphoneStream) {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            microphoneStream = stream;
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => peerConnection?.addTrack(track, microphoneStream!));
+            }
+        });
+    }
+    
+    if (peerConnection) {
+        peerConnection.createOffer().then(offer => {
+        if (peerConnection) {
+            return peerConnection.setLocalDescription(offer);
+        }
+    }).then(() => {
+        
+        }).catch(handleNegotiationFailure);
+    }
+}
+
+function handleNegotiationFailure() {
+    if (negotiationAttempts < maxNegotiationAttempts) {
+        negotiationAttempts++;
+        setTimeout(() => reconnectWebSocket(), retryDelay);
+    } else {
+        console.error('Max negotiation attempts reached.');
+    }
+}
+
+
+createPeerConnection();
 
 export default { TeacherAudioManager, StudentAudioManager };

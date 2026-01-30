@@ -11,7 +11,7 @@
 export type SignalingChannel = {
     send: (target: string, message: any) => void;
     onMessage: (callback: (from: string, message: any) => void) => void;
-    sendBinary?: (data: Blob | ArrayBuffer) => void; // Added for streaming to server
+    sendBinary?: (data: Blob | ArrayBuffer) => void; 
 };
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -30,10 +30,10 @@ export class TeacherBroadcastClient {
 
     async start(studentId: string) {
         try {
-            // 1. Capture microphone
+            
             this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            // 2. Setup WebRTC (P2P to student)
+            
             this.peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
             this.localStream.getTracks().forEach(t => this.peerConnection?.addTrack(t, this.localStream!));
 
@@ -45,7 +45,7 @@ export class TeacherBroadcastClient {
             await this.peerConnection.setLocalDescription(offer);
             this.signaling.send(studentId, { type: "offer", sdp: offer });
 
-            // 3. Setup Streaming to Backend Relay Server
+            
             this.setupBackendStreaming();
 
         } catch (err) {
@@ -56,14 +56,14 @@ export class TeacherBroadcastClient {
     private setupBackendStreaming() {
         if (!this.localStream) return;
 
-        // Inform server to start a new session
+        
         this.signaling.send("server", { channel: "/audio", payload: { type: "start", locale: "en-US" } });
 
         this.mediaRecorder = new MediaRecorder(this.localStream, { mimeType: 'audio/webm;codecs=opus' });
 
         this.mediaRecorder.ondataavailable = async (event) => {
             if (event.data.size > 0) {
-                // Convert Blob to Base64 to send over JSON-based WebSocket channel
+                
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     const base64data = (reader.result as string).split(',')[1];
@@ -76,7 +76,7 @@ export class TeacherBroadcastClient {
             }
         };
 
-        // Collect data every 1 second
+        
         this.mediaRecorder.start(1000);
         console.log("Streaming to backend started...");
     }
@@ -91,7 +91,7 @@ export class TeacherBroadcastClient {
     }
 
     stop() {
-        // Inform server to finalize and summarize
+        
         this.signaling.send("server", { channel: "/audio", payload: { type: "stop" } });
 
         this.mediaRecorder?.stop();

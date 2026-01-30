@@ -11,6 +11,17 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       "/api": {
         target: "http://localhost:3000",
+        changeOrigin: true,
+        // strip cookies and other large headers from proxied requests to avoid 431 from backend
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req, res) => {
+            try {
+              proxyReq.removeHeader("cookie");
+            } catch (e) {
+              // ignore
+            }
+          });
+        },
       },
     },
   },
