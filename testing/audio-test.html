@@ -387,13 +387,13 @@
         let isLectureActive = false;
 
         async function startTeacherAudio() {
-            // If already active, just return
+            
             if (isLectureActive && localStream && localStream.getAudioTracks().some(t => t.readyState === 'live')) {
                 return localStream;
             }
 
             try {
-                // If stream exists but lecture wasn't active, ensure it's fresh or reusable
+                
                 if (!localStream || !localStream.getAudioTracks().some(t => t.readyState === 'live')) {
                     log('Requesting microphone access...');
                     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -421,7 +421,7 @@
                 return;
             }
 
-            // Create new instance if needed
+            
             if (recognition) {
                 try { recognition.abort(); } catch (e) { }
             }
@@ -433,7 +433,7 @@
 
             recognition.onstart = () => {
                 log('Transcription service: LISTENING');
-                recognitionRetryCount = 0; // Reset on success
+                recognitionRetryCount = 0; 
                 $('liveTranscriptContainer').style.display = 'block';
                 if ($('liveTranscript').value === 'Waiting for speech...') {
                     $('liveTranscript').value = '';
@@ -503,10 +503,10 @@
             };
 
             if (isTeacher) {
-                // Teacher sends audio
+                
                 localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
             } else {
-                // Student only receives
+                
                 peerConnection.addTransceiver('audio', { direction: 'recvonly' });
                 peerConnection.ontrack = (event) => {
                     log('Live teacher audio received!');
@@ -544,7 +544,7 @@
 
         async function handleOffer(offer, from) {
             const myRole = $('role').value;
-            // Unidirectional: Student never captures mic
+            
             peerConnection = createPeerConnection(from, myRole === 'teacher');
 
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
@@ -596,15 +596,15 @@
             $('stopLectureBtn').disabled = true;
             if (peerConnection) peerConnection.close();
 
-            // Cleanly stop the mic so the browser icon goes away
+            
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
                 localStream = null;
             }
 
             updateRTCStatus('idle');
-            // Keep live transcript box visible for review
-            // $('liveTranscriptContainer').style.display = 'none';
+            
+            
         };
 
         function setupVisualizer(stream, canvasId, color) {

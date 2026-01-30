@@ -3,7 +3,7 @@ import LandingPage from './pages/LandingPage';
 import TeacherPage from './pages/TeacherPage';
 import StudentPage from './pages/StudentPage';
 import React, { useRef, useState } from 'react';
-import BoardViewer from './board/BoardViewer';
+import BoardCanvas from './board/BoardCanvas';
 import useRole from './state/role';
 import useSession from './state/session';
 import { startBoardCapture } from './board/BoardCapture';
@@ -105,7 +105,7 @@ function RouterChildren() {
     <Routes>
       <Route path="/" element={<LandingPage onSelectRole={setRole} />} />
       <Route path="/teacher" element={<TeacherPage avatarPreviewRef={avatarPreviewRef} boardPreviewRef={boardPreviewRef} isRunning={started} onStart={handleTeacherStart} onStop={handleTeacherStop} onROIChange={setRoi} initialROI={roi} sessionId={useSession(state => state.sessionId)} />} />
-      <Route path="/student" element={<StudentPage onLeave={handleStudentLeave} boardView={<BoardViewer />} />} />
+      <Route path="/student" element={<StudentPage onLeave={handleStudentLeave} boardView={<BoardCanvas />} />} />
     </Routes>
   );
 }

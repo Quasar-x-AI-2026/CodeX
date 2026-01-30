@@ -21,7 +21,7 @@ export function handle(ws: WebSocket, payload: unknown) {
 
     const p: any = payload;
 
-    // Handle join message first - before checking if socket is in a session
+    
     if (p.type === "join") {
       handleJoin(ws, from, p);
       return;

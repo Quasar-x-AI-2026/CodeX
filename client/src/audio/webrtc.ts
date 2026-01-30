@@ -1,3 +1,4 @@
+import { sendMessage } from "@/ws/socket";
 import { Answer, IceCandidateMessage, Offer, SignalingMessage,  } from "./webRtcTypes";
 
 
@@ -215,7 +216,9 @@ export class TeacherAudioManager {
   async removeStudent(targetSocketId: string) {
     const ent = this.pcs.get(targetSocketId);
     if (!ent) return;
-    try { ent.pc.close(); } catch {};
+    try { ent.pc.close(); } catch {
+      console.warn("Failed to close pc for", targetSocketId);
+    };
     this.pcs.delete(targetSocketId);
   }
 
@@ -274,7 +277,9 @@ export class TeacherAudioManager {
 
   async close() {
     for (const [k, v] of this.pcs.entries()) {
-      try { v.pc.close(); } catch {}
+      try { v.pc.close(); } catch {
+        this.log("Failed to close pc for", k);
+      }
       this.pcs.delete(k);
     }
     if (this.localStream) {
@@ -301,7 +306,9 @@ export class StudentAudioManager {
   async handleOffer(fromSocketId: string, offer: RTCSessionDescriptionInit) {
     
     if (this.pcEntry) {
-      try { this.pcEntry.pc.close(); } catch {}
+      try { this.pcEntry.pc.close(); } catch {
+        this.options.debug?.("Failed to close existing pc");
+      }
       this.pcEntry = undefined;
     }
 
@@ -328,7 +335,7 @@ export class StudentAudioManager {
           const transceiver = pc.addTransceiver("audio", { direction: "recvonly" });
           if (typeof (transceiver ).setCodecPreferences === "function") (transceiver ).setCodecPreferences(opusCodecs);
         } catch (e) {
-          this.log("setCodecPreferences failed on recv", e);
+          console.log("setCodecPreferences failed", e);
         }
       } else {
         pc.addTransceiver("audio", { direction: "recvonly" });
@@ -348,7 +355,7 @@ export class StudentAudioManager {
       const msg: Answer = { type: "sdp", sdpType: "answer", sdp: pc.localDescription as RTCSessionDescriptionInit, recipient: "teacher", targetSocketId: fromSocketId };
       this.options.send(msg);
     } catch (e) {
-      this.log("handleOffer error", e);
+      console.warn("handleOffer failed", e);
     }
 
     this.pcEntry = {
@@ -367,8 +374,10 @@ export class StudentAudioManager {
     if (!this.pcEntry) return;
     const ent = this.pcEntry;
     if (ent.restartAttempts >= 3) {
-      this.log("recreate pc after repeated failures");
-      try { ent.pc.close(); } catch {}
+      console.log("Recreating peer connection for", teacherSocketId);
+      try { ent.pc.close(); } catch {
+        console.warn("Failed to close pc during restart for", teacherSocketId);
+      }
       this.pcEntry = undefined;
       return;
     }
@@ -380,14 +389,16 @@ export class StudentAudioManager {
       const msg: Offer = { type: "sdp", sdpType: "offer", sdp: ent.pc.localDescription as RTCSessionDescriptionInit, recipient: "teacher", targetSocketId: teacherSocketId };
       this.options.send(msg);
     } catch (e) {
-      this.log("attemptRestart failed", e);
+      console.warn("ice restart failed", e);
       setTimeout(() => this.attemptRestart(teacherSocketId), 1000 * ent.restartAttempts);
     }
   }
 
   async close() {
     if (!this.pcEntry) return;
-    try { this.pcEntry.pc.close(); } catch {}
+    try { this.pcEntry.pc.close(); } catch {
+      console.warn("Failed to close pc during StudentAudioManager close");
+    }
     this.pcEntry = undefined;
   }
 }
@@ -407,7 +418,14 @@ function createPeerConnection() {
     peerConnection = new RTCPeerConnection({ iceServers: DEFAULT_STUN });
 
     peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {  }
+        if (event.candidate) {
+            const msg: IceCandidateMessage = {
+                type: "ice",
+                candidate: event.candidate.toJSON(),
+                recipient: role === 'teacher' ? 'students' : 'teacher',
+            };
+            safeSend({ send: sendMessage, sessionId: sessionId ?? '' }, msg);
+          }
     };
 
     peerConnection.ontrack = (event) => {

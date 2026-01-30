@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
 import { createWebSocketServer } from "./ws/index";
 import { handleDisconnect } from "./sessions/cleanup";
-import type { Request, Response } from "express";
+import type { Request, Response, NextFunction} from "express";
 import express from "express";
 import type { WebSocket } from "ws";
 
@@ -14,16 +14,15 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 export function startServer(port = PORT) {
   const app = express();
 
-  // Dev diagnostic: log header sizes when 431 occurs (helps troubleshoot large header issues)
-  app.use((req, res, next) => {
+  app.use((req: Request, res: Response, next: NextFunction) => {
     try {
       const sizes: Record<string, number> = {};
       for (const [k, v] of Object.entries(req.headers)) sizes[k] = v ? String(v).length : 0;
-      // Only print when some header looks large (heuristic)
+      
       const large = Object.entries(sizes).find(([_, len]) => len > 2000);
       if (large) console.warn("Large header detected", large, sizes);
     } catch (e) {
-      // ignore
+      
     }
     next();
   });
