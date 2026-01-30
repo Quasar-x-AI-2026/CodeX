@@ -8,23 +8,26 @@ function preferOpus(sdp: string): string {
   const mLineIndex = lines.findIndex((l) => l.startsWith("m=audio"));
   if (mLineIndex === -1) return sdp;
 
-  
-  const opusLine = lines.find((l) => l.match(/^a=rtpmap:(\d+) opus\/48000/));
+  const opusLine = lines.find((l) =>
+    l.match(/^a=rtpmap:(\d+) opus\/48000/)
+  );
   if (!opusLine) return sdp;
-  const opusPayload = opusLine.split(" ")[0].split(":")[1];
 
+  const opusPayload = opusLine.split(" ")[0].split(":")[1];
   const mLineParts = lines[mLineIndex].split(" ");
-  
   const header = mLineParts.slice(0, 3);
   const payloads = mLineParts.slice(3).filter((p) => p !== opusPayload);
-  const newMLine = [...header, opusPayload, ...payloads].join(" ");
-  lines[mLineIndex] = newMLine;
+  lines[mLineIndex] = [...header, opusPayload, ...payloads].join(" ");
+
   return lines.join("\r\n");
 }
 
 type SendSignal = (msg: SignalingMessage) => void;
 
-type RemoteTrackCallback = (stream: MediaStream, fromSocketId?: string) => void;
+type RemoteTrackCallback = (
+  stream: MediaStream,
+  fromSocketId?: string
+) => void;
 
 type PeerOptions = {
   send: SendSignal;
@@ -34,8 +37,24 @@ type PeerOptions = {
   debug?: (msg: string, ...args: unknown[]) => void;
 };
 
+/* =======================
+   ✅ SAFE SEND GUARD
+   ======================= */
+function safeSend(options: PeerOptions, msg: SignalingMessage) {
+  try {
+    options.send(msg);
+  } catch (e) {
+    if (options.debug) {
+      options.debug("WS not ready, skipping signaling send", e);
+    }
+  }
+}
+
 function createPC(options: PeerOptions, targetSocketId?: string) {
-  const pc = new RTCPeerConnection({ iceServers: options.iceServers ?? DEFAULT_STUN });
+  const pc = new RTCPeerConnection({
+    iceServers: options.iceServers ?? DEFAULT_STUN,
+  });
+
   const queuedIce: RTCIceCandidateInit[] = [];
   let remoteDescSet = false;
 
@@ -47,12 +66,14 @@ function createPC(options: PeerOptions, targetSocketId?: string) {
       recipient: targetSocketId ? "students" : undefined,
       targetSocketId,
     };
-    options.send(msg);
+    safeSend(options, msg);
   };
 
   pc.ontrack = (ev) => {
-    const stream = ev.streams && ev.streams[0];
-    if (stream && options.onRemoteTrack) options.onRemoteTrack(stream, targetSocketId);
+    const stream = ev.streams?.[0];
+    if (stream && options.onRemoteTrack) {
+      options.onRemoteTrack(stream, targetSocketId);
+    }
   };
 
   async function addIceCandidate(candidate: RTCIceCandidateInit) {
@@ -61,20 +82,20 @@ function createPC(options: PeerOptions, targetSocketId?: string) {
       return;
     }
     try {
-      await pc.addIceCandidate(candidate as RTCIceCandidateInit);
+      await pc.addIceCandidate(candidate);
     } catch (e) {
-      if (options.debug) options.debug("addIceCandidate error", e);
+      options.debug?.("addIceCandidate error", e);
     }
   }
 
   async function flushQueue() {
     remoteDescSet = true;
-    while (queuedIce.length > 0) {
+    while (queuedIce.length) {
       const c = queuedIce.shift()!;
       try {
-        await pc.addIceCandidate(c as RTCIceCandidateInit);
+        await pc.addIceCandidate(c);
       } catch (e) {
-        if (options.debug) options.debug("queued addIceCandidate error", e);
+        options.debug?.("queued addIceCandidate error", e);
       }
     }
   }
@@ -82,10 +103,21 @@ function createPC(options: PeerOptions, targetSocketId?: string) {
   return { pc, addIceCandidate, flushQueue };
 }
 
+/* =======================
+   TEACHER AUDIO MANAGER
+   ======================= */
 
 export class TeacherAudioManager {
   private options: PeerOptions;
-  private pcs: Map<string, { pc: RTCPeerConnection; addIceCandidate: (c: RTCIceCandidateInit) => Promise<void>; flushQueue: () => Promise<void>; restartAttempts: number }> = new Map();
+  private pcs = new Map<
+    string,
+    {
+      pc: RTCPeerConnection;
+      addIceCandidate: (c: RTCIceCandidateInit) => Promise<void>;
+      flushQueue: () => Promise<void>;
+      restartAttempts: number;
+    }
+  >();
   private localStream: MediaStream | null = null;
   private getLocalStream: () => Promise<MediaStream>;
 
@@ -95,16 +127,16 @@ export class TeacherAudioManager {
   }
 
   private log(...args: unknown[]) {
-    if (this.options.debug) this.options.debug("TeacherAudioManager:", ...args);
+    this.options.debug?.("TeacherAudioManager:", ...args);
   }
 
   async ensureLocalStream() {
-    if (this.localStream) return this.localStream;
-    this.localStream = await this.getLocalStream();
+    if (!this.localStream) {
+      this.localStream = await this.getLocalStream();
+    }
     return this.localStream;
   }
 
-  
   async addStudent(targetSocketId: string) {
     if (this.pcs.has(targetSocketId)) return;
 
@@ -127,7 +159,7 @@ export class TeacherAudioManager {
           for (const tr of transceivers) {
             if (tr.receiver && tr.receiver.track && tr.receiver.track.kind === "audio") continue;
             
-            if (typeof (tr).setCodecPreferences === "function") (tr).setCodecPreferences(opusCodecs);
+            if (typeof (tr as any).setCodecPreferences === "function") (tr as any).setCodecPreferences(opusCodecs);
           }
         } catch (e) {
           this.log("setCodecPreferences failed", e);
@@ -136,29 +168,34 @@ export class TeacherAudioManager {
     }
 
     pc.onconnectionstatechange = () => {
-      const state = pc.connectionState;
-      this.log("connection state", targetSocketId, state);
-      if (state === "failed" || state === "disconnected") {
+      if (
+        pc.connectionState === "failed" ||
+        pc.connectionState === "disconnected"
+      ) {
         this.attemptRestart(targetSocketId);
       }
     };
 
-    this.pcs.set(targetSocketId, { pc, addIceCandidate, flushQueue, restartAttempts: 0 });
+    this.pcs.set(targetSocketId, {
+      pc,
+      addIceCandidate,
+      flushQueue,
+      restartAttempts: 0,
+    });
 
-    
     const offer = await pc.createOffer();
-    const sdpStr = preferOpus(offer.sdp ?? "");
-    await pc.setLocalDescription({ type: offer.type, sdp: sdpStr });
+    await pc.setLocalDescription({
+      type: offer.type,
+      sdp: preferOpus(offer.sdp ?? ""),
+    });
 
-    const msg: Offer = {
+    safeSend(this.options, {
       type: "sdp",
       sdpType: "offer",
-      sdp: pc.localDescription as RTCSessionDescriptionInit,
+      sdp: pc.localDescription!,
       recipient: "students",
       targetSocketId,
-    };
-
-    this.options.send(msg);
+    });
 
     await flushQueue();
   }
@@ -166,11 +203,7 @@ export class TeacherAudioManager {
   async handleAnswer(fromSocketId: string, answer: RTCSessionDescriptionInit) {
     const ent = this.pcs.get(fromSocketId);
     if (!ent) return;
-    try {
-      await ent.pc.setRemoteDescription(answer);
-    } catch (e) {
-      this.log("setRemoteDescription(answer) error", e);
-    }
+    await ent.pc.setRemoteDescription(answer);
   }
 
   async handleIce(fromSocketId: string, candidate: RTCIceCandidateInit) {
@@ -182,38 +215,35 @@ export class TeacherAudioManager {
   async removeStudent(targetSocketId: string) {
     const ent = this.pcs.get(targetSocketId);
     if (!ent) return;
-    try { ent.pc.close(); } catch {
-      console.warn("error closing peer connection");
-    };
+    try { ent.pc.close(); } catch {};
     this.pcs.delete(targetSocketId);
   }
 
   async attemptRestart(targetSocketId: string) {
     const ent = this.pcs.get(targetSocketId);
     if (!ent) return;
-    if (ent.restartAttempts >= 3) {
-      
-      this.log("recreate pc after repeated failures", targetSocketId);
-      await this.removeStudent(targetSocketId);
-      
-      setTimeout(() => this.addStudent(targetSocketId), 1000 + Math.random() * 1000);
+
+    if (ent.restartAttempts++ >= 3) {
+      this.log("recreating pc", targetSocketId);
+      this.pcs.delete(targetSocketId);
+      setTimeout(() => this.addStudent(targetSocketId), 1500);
       return;
     }
 
-    ent.restartAttempts++;
     try {
-      
       const offer = await ent.pc.createOffer({ iceRestart: true });
-      const sdpStr = preferOpus(offer.sdp ?? "");
-      await ent.pc.setLocalDescription({ type: offer.type, sdp: sdpStr });
-      const msg: Offer = {
+      await ent.pc.setLocalDescription({
+        type: offer.type,
+        sdp: preferOpus(offer.sdp ?? ""),
+      });
+
+      safeSend(this.options, {
         type: "sdp",
         sdpType: "offer",
-        sdp: ent.pc.localDescription as RTCSessionDescriptionInit,
+        sdp: ent.pc.localDescription!,
         recipient: "students",
         targetSocketId,
-      };
-      this.options.send(msg);
+      });
     } catch (e) {
       this.log("ice restart failed", e);
       
@@ -244,9 +274,7 @@ export class TeacherAudioManager {
 
   async close() {
     for (const [k, v] of this.pcs.entries()) {
-      try { v.pc.close(); } catch {
-        console.warn("error closing peer connection");
-      }
+      try { v.pc.close(); } catch {}
       this.pcs.delete(k);
     }
     if (this.localStream) {
@@ -259,31 +287,34 @@ export class TeacherAudioManager {
 
 export class StudentAudioManager {
   private options: PeerOptions;
-  private pcEntry?: { pc: RTCPeerConnection; addIceCandidate: (c: RTCIceCandidateInit) => Promise<void>; flushQueue: () => Promise<void>; restartAttempts: number };
+  private pcEntry?: {
+    pc: RTCPeerConnection;
+    addIceCandidate: (c: RTCIceCandidateInit) => Promise<void>;
+    flushQueue: () => Promise<void>;
+    restartAttempts: number;
+  };
 
   constructor(opts: PeerOptions) {
     this.options = opts;
   }
 
-  private log(...args: unknown[]) {
-    if (this.options.debug) this.options.debug("StudentAudioManager:", ...args);
-  }
-
   async handleOffer(fromSocketId: string, offer: RTCSessionDescriptionInit) {
     
     if (this.pcEntry) {
-      try { this.pcEntry.pc.close(); } catch {
-        console.warn("error closing peer connection");
-      }
+      try { this.pcEntry.pc.close(); } catch {}
       this.pcEntry = undefined;
     }
 
-    const { pc, addIceCandidate, flushQueue } = createPC(this.options, fromSocketId);
+    const { pc, addIceCandidate, flushQueue } = createPC(
+      this.options,
+      fromSocketId
+    );
 
     pc.onconnectionstatechange = () => {
-      const state = pc.connectionState;
-      this.log("connection state", state);
-      if (state === "failed" || state === "disconnected") {
+      if (
+        pc.connectionState === "failed" ||
+        pc.connectionState === "disconnected"
+      ) {
         this.attemptRestart(fromSocketId);
       }
     };
@@ -295,7 +326,7 @@ export class StudentAudioManager {
       if (opusCodecs.length > 0) {
         try {
           const transceiver = pc.addTransceiver("audio", { direction: "recvonly" });
-          if (typeof (transceiver).setCodecPreferences === "function") (transceiver).setCodecPreferences(opusCodecs);
+          if (typeof (transceiver as any).setCodecPreferences === "function") (transceiver as any).setCodecPreferences(opusCodecs);
         } catch (e) {
           this.log("setCodecPreferences failed on recv", e);
         }
@@ -320,12 +351,16 @@ export class StudentAudioManager {
       this.log("handleOffer error", e);
     }
 
-    this.pcEntry = { pc, addIceCandidate, flushQueue, restartAttempts: 0 };
+    this.pcEntry = {
+      pc,
+      addIceCandidate,
+      flushQueue,
+      restartAttempts: 0,
+    };
   }
 
-  async handleIce(fromSocketId: string, candidate: RTCIceCandidateInit) {
-    if (!this.pcEntry) return;
-    await this.pcEntry.addIceCandidate(candidate);
+  async handleIce(_: string, candidate: RTCIceCandidateInit) {
+    if (this.pcEntry) await this.pcEntry.addIceCandidate(candidate);
   }
 
   async attemptRestart(teacherSocketId: string) {
@@ -333,15 +368,11 @@ export class StudentAudioManager {
     const ent = this.pcEntry;
     if (ent.restartAttempts >= 3) {
       this.log("recreate pc after repeated failures");
-      try { ent.pc.close(); } catch {
-        console.warn("error closing peer connection");
-      }
+      try { ent.pc.close(); } catch {}
       this.pcEntry = undefined;
-      
       return;
     }
 
-    ent.restartAttempts++;
     try {
       const offer = await ent.pc.createOffer({ iceRestart: true });
       const sdpStr = preferOpus(offer.sdp ?? "");
@@ -356,105 +387,69 @@ export class StudentAudioManager {
 
   async close() {
     if (!this.pcEntry) return;
-    try { this.pcEntry.pc.close(); } catch {
-      this.log("error closing peer connection");
-    }
+    try { this.pcEntry.pc.close(); } catch {}
     this.pcEntry = undefined;
   }
 }
 
-type OnIceCandidate = (candidate: RTCIceCandidateInit) => void;
+let peerConnection: RTCPeerConnection | null = null;
+let microphoneStream: MediaStream | null = null;
+let sessionId: string | null = null;
+let role: 'teacher' | 'student' | null = null;
+let negotiationAttempts = 0;
+const maxNegotiationAttempts = 3;
+const retryDelay = 1000; 
 
-/**
- * createPeerConnection - lightweight helper for creating/configuring an RTCPeerConnection
- *
- * Responsibilities:
- * - create RTCPeerConnection with sane defaults
- * - expose helpers: createOffer, createAnswer, applyRemoteDescription
- * - allow attaching a local MediaStream via addLocalStream()
- * - emit ICE candidates via onIceCandidate callback
- * - queue ICE until remote description is set
- *
- * Does NOT perform any role-specific logic, signaling, or UI work.
- */
-export function createPeerConnection(onIceCandidate?: OnIceCandidate, iceServers: RTCIceServer[] = DEFAULT_STUN) {
-  const pc = new RTCPeerConnection({ iceServers });
-  const queuedIce: RTCIceCandidateInit[] = [];
-  let remoteDescSet = false;
-
-  pc.onicecandidate = (ev) => {
-    if (!ev.candidate) return;
-    try {
-      const payload = ev.candidate.toJSON();
-      if (onIceCandidate) onIceCandidate(payload);
-    } catch (e) {
-      // swallow - ICE emission should not throw
-      // degrade silently on ICE errors
-      // eslint-disable-next-line no-console
-      console.warn("onicecandidate callback failed", e);
+function createPeerConnection() {
+    if (peerConnection) {
+        peerConnection.close(); 
     }
-  };
+    peerConnection = new RTCPeerConnection({ iceServers: DEFAULT_STUN });
 
-  // leave ontrack handling to consumer via pc.ontrack
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            
+        }
+    };
 
-  async function addIceCandidate(candidate: RTCIceCandidateInit) {
-    if (!remoteDescSet) {
-      queuedIce.push(candidate);
-      return;
-    }
-    try {
-      await pc.addIceCandidate(candidate);
-    } catch (e) {
-      // ICE failures should degrade silently
-      // eslint-disable-next-line no-console
-      console.warn("addIceCandidate failed", e);
-    }
-  }
-
-  async function flushQueue() {
-    remoteDescSet = true;
-    while (queuedIce.length > 0) {
-      const c = queuedIce.shift()!;
-      try {
-        await pc.addIceCandidate(c);
-      } catch (e) {
-        // continue on error
-        // eslint-disable-next-line no-console
-        console.warn("queued addIceCandidate error", e);
-      }
-    }
-  }
-
-  function addLocalStream(stream: MediaStream) {
-    for (const t of stream.getTracks()) pc.addTrack(t, stream);
-  }
-
-  async function createOffer(options?: RTCOfferOptions) {
-    const offer = await pc.createOffer(options);
-    const sdpStr = preferOpus(offer.sdp ?? "");
-    await pc.setLocalDescription({ type: offer.type, sdp: sdpStr });
-    return pc.localDescription as RTCSessionDescriptionInit;
-  }
-
-  async function createAnswer() {
-    const answer = await pc.createAnswer();
-    const sdpStr = preferOpus(answer.sdp ?? "");
-    await pc.setLocalDescription({ type: answer.type, sdp: sdpStr });
-    return pc.localDescription as RTCSessionDescriptionInit;
-  }
-
-  async function applyRemoteDescription(desc: RTCSessionDescriptionInit) {
-    await pc.setRemoteDescription(desc);
-    await flushQueue();
-  }
-
-  function close() {
-    try { pc.close(); } catch {
-      // ignore
-    }
-  }
-
-  return { pc, addLocalStream, createOffer, createAnswer, applyRemoteDescription, addIceCandidate, close };
+    peerConnection.ontrack = (event) => {
+        
+    };
 }
+
+function reconnectWebSocket() {
+    
+    createPeerConnection();
+    if (role === 'teacher' && !microphoneStream) {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            microphoneStream = stream;
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => peerConnection?.addTrack(track, microphoneStream!));
+            }
+        });
+    }
+    
+    if (peerConnection) {
+        peerConnection.createOffer().then(offer => {
+        if (peerConnection) {
+            return peerConnection.setLocalDescription(offer);
+        }
+    }).then(() => {
+        
+        }).catch(handleNegotiationFailure);
+    }
+}
+
+function handleNegotiationFailure() {
+    if (negotiationAttempts < maxNegotiationAttempts) {
+        negotiationAttempts++;
+        setTimeout(() => reconnectWebSocket(), retryDelay);
+    } else {
+        console.error('Max negotiation attempts reached.');
+    }
+}
+
+
+createPeerConnection();
 
 export default { TeacherAudioManager, StudentAudioManager };

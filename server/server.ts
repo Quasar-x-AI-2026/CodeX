@@ -1,9 +1,13 @@
 import http from "http";
+import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
 import { createWebSocketServer } from "./ws/index";
 import { handleDisconnect } from "./sessions/cleanup";
 import type { Request, Response } from "express";
 import express from "express";
+import type { WebSocket } from "ws";
+
+dotenv.config();
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
@@ -17,18 +21,27 @@ export function startServer(port = PORT) {
 
   const wss = createWebSocketServer(server);
 
-  
-  wss.on("connection", async (ws) => {
-    const socketId = uuidv4();
-    
-    (ws as any).id = socketId;
 
-    
+  interface SocketMessage {
+    type: string;
+    socketId: string;
+  }
+
+  interface SocketWithId extends WebSocket {
+    id: string;
+  }
+
+  wss.on("connection", async (ws: WebSocket) => {
+    const socketId = uuidv4();
+
+    (ws as SocketWithId).id = socketId;
+
+
     try {
       const { register, unregister } = await import("./ws/registry");
       register(socketId, ws);
 
-      ws.send(JSON.stringify({ type: "welcome", socketId }));
+      ws.send(JSON.stringify({ type: "welcome", socketId } as SocketMessage));
 
       ws.on("close", () => {
         try {
@@ -44,11 +57,11 @@ export function startServer(port = PORT) {
         }
       });
 
-      ws.on("error", (err) => {
+      ws.on("error", (err: Error) => {
         console.warn("websocket error for socket", socketId, err);
       });
     } catch (err) {
-      
+
       console.warn("failed to register websocket", err);
     }
   });
