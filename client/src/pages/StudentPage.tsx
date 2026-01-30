@@ -32,29 +32,7 @@ export default function StudentPage({ onLeave, boardView }: Props) {
     }
 
     startSession(sid);
-
-    // Attach signaling handlers for incoming SDP/ICE
-    const offSdp = addHandler("sdp", (msg: any) => {
-      studentAudio.handleSignalingMessage(msg).catch((e) => console.warn('student handle sdp failed', e));
-    });
-    const offIce = addHandler("ice", (msg: any) => {
-      studentAudio.handleSignalingMessage(msg).catch((e) => console.warn('student handle ice failed', e));
-    });
-
-    return () => {
-      try { offSdp(); } catch {};
-      try { offIce(); } catch {};
-    };
-
-  }, []);
-
-  // Attach audio element to the hook
-  useEffect(() => {
-    const el = audioElRef.current;
-    studentAudio.attachAudioElement(el);
-    return () => {
-      studentAudio.attachAudioElement(null);
-    };
+    
   }, []);
 
   return (
@@ -82,7 +60,6 @@ export default function StudentPage({ onLeave, boardView }: Props) {
             <h3 className="font-medium mb-3">Teacher Avatar</h3>
             <div className="h-96 flex items-center justify-center relative">
               <AvatarCanvas width={260} height={260} meshScale={3.5} />
-              <AvatarDebug />
             </div>
 
             {/* Audio element (hidden) + simple status UI */}
