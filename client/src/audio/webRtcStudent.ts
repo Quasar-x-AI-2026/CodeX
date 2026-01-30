@@ -104,11 +104,14 @@ export default function useStudentAudio(send: SendSignal, sessionId?: string, de
 
     try {
       if (msg.type === "sdp" && msg.sdpType === "offer") {
-        if (!msg.targetSocketId) return;
-        await managerRef.current.handleOffer(msg.targetSocketId, msg.sdp);
+        // Accept offers addressed to us via targetSocketId or those broadcasted (use msg.from)
+        const fromId = (msg.targetSocketId as string) ?? ((msg as any).from as string | undefined);
+        if (!fromId) return;
+        await managerRef.current.handleOffer(fromId, msg.sdp);
       } else if (msg.type === "ice") {
-        if (!msg.targetSocketId) return;
-        await managerRef.current.handleIce(msg.targetSocketId, msg.candidate);
+        const fromId = (msg.targetSocketId as string) ?? ((msg as any).from as string | undefined);
+        if (!fromId) return;
+        await managerRef.current.handleIce(fromId, msg.candidate);
       }
     } catch (e) {
       

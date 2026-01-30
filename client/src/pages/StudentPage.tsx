@@ -1,9 +1,10 @@
 import React from "react";
 import AvatarCanvas from "../avatar/AvatarCanvas";
-import AvatarDebug from "../avatar/AvatarDebug";
-import { useEffect } from "react";
-import { sendMessage } from "../ws/socket";
+import { useEffect, useRef } from "react";
+import { sendMessage, addHandler } from "../ws/socket";
 import useSession from "../state/session";
+import AvatarDebug from "@/avatar/AvatarDebug";
+import useStudentAudio from "../audio/webRtcStudent";
 
 type Props = {
   onLeave: () => void;
@@ -13,6 +14,10 @@ type Props = {
 export default function StudentPage({ onLeave, boardView }: Props) {
   const startSession = useSession((s) => s.startSession);
 
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+
+  const studentAudio = useStudentAudio(sendMessage, undefined, (msg, ...args) => console.debug("student-audio", msg, ...args));
+
   useEffect(() => {
     const sid = window.prompt("Enter session ID to join");
     if (!sid) {
@@ -20,7 +25,6 @@ export default function StudentPage({ onLeave, boardView }: Props) {
       return;
     }
 
-    
     try {
       sendMessage({ type: "join", sessionId: sid, role: "student" });
     } catch (e) {
@@ -28,7 +32,29 @@ export default function StudentPage({ onLeave, boardView }: Props) {
     }
 
     startSession(sid);
-    
+
+    // Attach signaling handlers for incoming SDP/ICE
+    const offSdp = addHandler("sdp", (msg: any) => {
+      studentAudio.handleSignalingMessage(msg).catch((e) => console.warn('student handle sdp failed', e));
+    });
+    const offIce = addHandler("ice", (msg: any) => {
+      studentAudio.handleSignalingMessage(msg).catch((e) => console.warn('student handle ice failed', e));
+    });
+
+    return () => {
+      try { offSdp(); } catch {};
+      try { offIce(); } catch {};
+    };
+
+  }, []);
+
+  // Attach audio element to the hook
+  useEffect(() => {
+    const el = audioElRef.current;
+    studentAudio.attachAudioElement(el);
+    return () => {
+      studentAudio.attachAudioElement(null);
+    };
   }, []);
 
   return (
@@ -57,6 +83,37 @@ export default function StudentPage({ onLeave, boardView }: Props) {
             <div className="h-96 flex items-center justify-center relative">
               <AvatarCanvas width={260} height={260} meshScale={3.5} />
               <AvatarDebug />
+            </div>
+
+            {/* Audio element (hidden) + simple status UI */}
+            <div className="mt-4">
+              <audio ref={audioElRef} style={{ display: 'none' }}></audio>
+              <div className="text-sm text-gray-500 mt-2">Live audio from teacher will play automatically when available. If autoplay is blocked, click Play below.</div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => {
+                    const el = audioElRef.current;
+                    if (!el) return;
+                    const p = el.play();
+                    if (p && typeof (p as Promise<void>).then === 'function') {
+                      (p as Promise<void>).catch((err) => console.warn('play failed', err));
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700"
+                >
+                  Play
+                </button>
+                <button
+                  onClick={() => {
+                    const el = audioElRef.current;
+                    if (!el) return;
+                    try { el.pause(); } catch {}
+                  }}
+                  className="inline-flex items-center gap-2 bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-300"
+                >
+                  Pause
+                </button>
+              </div>
             </div>
           </aside>
         </main>

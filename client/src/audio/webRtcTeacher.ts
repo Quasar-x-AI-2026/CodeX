@@ -103,15 +103,19 @@ export default function useTeacherAudio(send: SendSignal, sessionId?: string, de
 
     try {
       if (msg.type === "sdp" && msg.sdpType === "answer") {
-        if (!msg.targetSocketId) return;
-        await managerRef.current.handleAnswer(msg.targetSocketId, msg.sdp);
+        // answers should target the teacher; allow fallback to msg.from
+        const fromId = (msg.targetSocketId as string) ?? ((msg as any).from as string | undefined);
+        if (!fromId) return;
+        await managerRef.current.handleAnswer(fromId, msg.sdp);
       } else if (msg.type === "ice") {
-        if (!msg.targetSocketId) return;
-        await managerRef.current.handleIce(msg.targetSocketId, msg.candidate);
+        const fromId = (msg.targetSocketId as string) ?? ((msg as any).from as string | undefined);
+        if (!fromId) return;
+        await managerRef.current.handleIce(fromId, msg.candidate);
       } else if (msg.type === "sdp" && msg.sdpType === "offer") {
-        
-        if (!msg.targetSocketId) return;
-        await managerRef.current.handleWorkerOffer(msg.targetSocketId, msg.sdp);
+        // worker offers: if not targeted, fallback to msg.from
+        const fromId = (msg.targetSocketId as string) ?? ((msg as any).from as string | undefined);
+        if (!fromId) return;
+        await managerRef.current.handleWorkerOffer(fromId, msg.sdp);
       }
     } catch (e) {
       

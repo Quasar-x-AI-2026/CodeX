@@ -51,7 +51,7 @@ function safeSend(options: PeerOptions, msg: SignalingMessage) {
   }
 }
 
-function createPC(options: PeerOptions, targetSocketId?: string) {
+function createPC(options: PeerOptions, targetSocketId?: string, recipient?: "teacher" | "students") {
   const pc = new RTCPeerConnection({
     iceServers: options.iceServers ?? DEFAULT_STUN,
   });
@@ -64,7 +64,7 @@ function createPC(options: PeerOptions, targetSocketId?: string) {
     const msg: IceCandidateMessage = {
       type: "ice",
       candidate: ev.candidate.toJSON(),
-      recipient: targetSocketId ? "students" : undefined,
+      recipient: recipient ?? (targetSocketId ? "students" : undefined),
       targetSocketId,
     };
     safeSend(options, msg);
@@ -143,7 +143,7 @@ export class TeacherAudioManager {
 
     await this.ensureLocalStream();
 
-    const { pc, addIceCandidate, flushQueue } = createPC(this.options, targetSocketId);
+    const { pc, addIceCandidate, flushQueue } = createPC(this.options, targetSocketId, "students");
 
     
     if (this.localStream) {
@@ -314,7 +314,8 @@ export class StudentAudioManager {
 
     const { pc, addIceCandidate, flushQueue } = createPC(
       this.options,
-      fromSocketId
+      fromSocketId,
+      "teacher"
     );
 
     pc.onconnectionstatechange = () => {

@@ -60,6 +60,23 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
   
   const teacherAudio = useTeacherAudio(sendMessage, sessionId ?? undefined, (msg, ...args) => console.debug("teacher-audio", msg, ...args));
 
+  // Audio controls
+  const startAudio = async () => {
+    try {
+      await teacherAudio.start();
+    } catch (e) {
+      console.warn("start audio failed", e);
+    }
+  };
+
+  const stopAudio = () => {
+    try {
+      teacherAudio.stop();
+    } catch (e) {
+      console.warn("stop audio failed", e);
+    }
+  };
+
   useEffect(() => {
     
     const offSdp = addHandler("sdp", (msg: any) => {
@@ -103,6 +120,24 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
 
           <div className="flex items-center gap-3">
             {loading && <div className="animate-spin h-5 w-5 border-2 border-gray-300 border-t-indigo-600 rounded-full" aria-hidden />}
+
+            {/* Audio share button */}
+            <button
+              onClick={() => startAudio()}
+              className="inline-flex items-center gap-2 bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              title="Share microphone with students"
+            >
+              Share Audio
+            </button>
+
+            <button
+              onClick={() => stopAudio()}
+              className="inline-flex items-center gap-2 bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
+              title="Stop sharing microphone"
+            >
+              Stop Audio
+            </button>
+
             {localRunning ? (
               <button
                 onClick={handleStop}
