@@ -95,7 +95,7 @@ function computeControls(landmarks: Array<{ x: number; y: number; z?: number }>)
   return { headYaw, headPitch, mouthOpen, eyeBlink };
 }
 
-import { computeControlsFromLandmarks } from "./landmarks";
+import { computeControlsFromLandmarks } from "./utils/landmarks";
 
 async function ensureFaceMesh() {
   if (faceMesh) return faceMesh;

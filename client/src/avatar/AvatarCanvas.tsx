@@ -3,7 +3,7 @@ import controllers, { AvatarPose } from "./utils/controllers";
 import { onAvatar } from "../ws/avatar";
 import { sendMessage } from "../ws/socket";
 import useSession from "../state/session";
-import { computeControlsFromLandmarks } from "./landmarks";
+import { computeControlsFromLandmarks } from "./utils/landmarks";
 
 type AvatarCanvasProps = {
   width?: number;
