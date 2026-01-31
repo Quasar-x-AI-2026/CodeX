@@ -62,3 +62,45 @@ export function computeControlsFromLandmarks(landmarks: Landmark[]) {
 
   return { headYaw, headPitch, mouthOpen, eyeBlink };
 }
+
+export function expandLandmarks(landmarks: Landmark[]) {
+  if (!landmarks || landmarks.length === 0) return landmarks;
+
+  // Calculate center and bounding box
+  const xs = landmarks.map((p) => p.x);
+  const ys = landmarks.map((p) => p.y);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const w = Math.max(...xs) - Math.min(...xs);
+  const h = Math.max(...ys) - Math.min(...ys);
+
+  // We want to add a "halo" of points around the face to capture hair/neck.
+  // We can project out from the center through the convex hull, or just add a fixed set of relative points.
+  // Simple approach: Add a ring of points based on a scaled bounding box or ellipse.
+
+  const expanded = [...landmarks];
+  const scale = 2.5; // Expand significantly to catch hair
+
+  // Directions to expand towards (normalized 0..1 roughly covers face)
+  // We'll add points in a grid or circle around the center relative to w/h
+  const angles = [
+    0, 45, 90, 135, 180, 225, 270, 315
+  ].map(a => a * Math.PI / 180);
+
+  // Inner ring (hairline / ears / chin) - closer
+  angles.forEach(ang => {
+    const rx = Math.cos(ang) * w * 0.8;
+    const ry = Math.sin(ang) * h * 0.9;
+    expanded.push({ x: cx + rx, y: cy + ry, z: 0 });
+  });
+
+  // Outer ring (background / full hair) - further
+  angles.forEach(ang => {
+    const rx = Math.cos(ang) * w * 1.5;
+    const ry = Math.sin(ang) * h * 1.6;
+    expanded.push({ x: cx + rx, y: cy + ry, z: 0 });
+  });
+
+  return expanded;
+}
+
