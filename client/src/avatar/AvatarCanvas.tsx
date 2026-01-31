@@ -210,9 +210,9 @@ function drawTriangle(
   // Clip to destination triangle
   ctx.save();
   ctx.beginPath();
-  ctx.moveTo(d0.x, d0.y);
-  ctx.lineTo(d1.x, d1.y);
-  ctx.lineTo(d2.x, d2.y);
+  ctx.moveTo(d0.x - (d1.x - d0.x) * 0.005, d0.y - (d1.y - d0.y) * 0.005);
+  ctx.lineTo(d1.x - (d2.x - d1.x) * 0.005, d1.y - (d2.y - d1.y) * 0.005);
+  ctx.lineTo(d2.x - (d0.x - d2.x) * 0.005, d2.y - (d0.y - d2.y) * 0.005);
   ctx.closePath();
   ctx.clip();
 
@@ -341,6 +341,7 @@ function render(
     } catch (e) {
       try { console.warn("AvatarCanvas: failed rendering photo", e); } catch (e) { }
     }
+    return;
   }
 
 
