@@ -1,0 +1,20 @@
+{
+    "name": "codex-monorepo",
+    "version": "1.0.0",
+    "private": true,
+    "workspaces": [
+        "client",
+        "server"
+    ],
+    "scripts": {
+        "install:all": "bun install",
+        "dev": "concurrently \"bun run dev:server\" \"bun run dev:client\"",
+        "dev:server": "cd server && bun run dev",
+        "dev:client": "cd client && bun run dev",
+        "build": "cd client && bun run build",
+        "start": "cd server && bun run start"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}

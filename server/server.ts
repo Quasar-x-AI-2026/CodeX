@@ -1,4 +1,5 @@
 import "dotenv/config";
+import path from "path";
 import http from "http";
 import { v4 as uuidv4 } from "uuid";
 import { createWebSocketServer } from "./ws/index";
@@ -14,7 +15,10 @@ export function startServer(port = PORT) {
 
 
 
-  app.get("/", (req: Request, res: Response) => res.send("CodeX server running"));
+  app.use(express.json());
+
+  // API Routes
+  app.get("/api/health", (req: Request, res: Response) => res.status(200).json({ status: "ok" }));
   app.get("/health", (req: Request, res: Response) => res.status(200).json({ status: "ok" }));
 
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.includes("YOUR_GEMINI")) {
@@ -65,6 +69,15 @@ export function startServer(port = PORT) {
     } catch (err) {
       console.warn("failed to register websocket", err);
     }
+  });
+
+  // Serve static files from the client build directory
+  const clientBuildPath = path.join(process.cwd(), "..", "client", "dist");
+  app.use(express.static(clientBuildPath));
+
+  // Catch-all route to serve index.html for SPA routing
+  app.get("*", (req: Request, res: Response) => {
+    res.sendFile(path.join(clientBuildPath, "index.html"));
   });
 
   server.listen(port, () => {

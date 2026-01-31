@@ -11,15 +11,17 @@ export default defineConfig(({ mode }) => ({
       "/api": {
         target: "http://localhost:3000",
         changeOrigin: true,
-        configure: (proxy) => {
-          proxy.on("proxyReq", (proxyReq, req, res) => {
-            try {
-              proxyReq.removeHeader("cookie");
-            } catch (e) {
-              // ignore
-            }
-          });
-        },
+        secure: false,
+      },
+      "/socket.io": {
+        target: "ws://localhost:3000",
+        ws: true,
+        changeOrigin: true,
+      },
+      "/ws": {
+        target: "ws://localhost:3000",
+        ws: true,
+        changeOrigin: true,
       },
     },
   },
