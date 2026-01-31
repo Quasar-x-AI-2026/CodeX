@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import TeacherPage from './pages/TeacherPage';
 import StudentPage from './pages/StudentPage';
+import StudentJoinPage from './pages/StudentJoinPage';
 import React, { useRef, useState } from 'react';
 import BoardCanvas from './board/BoardCanvas';
 import useRole from './state/role';
@@ -124,6 +125,7 @@ function RouterChildren() {
     <Routes>
       <Route path="/" element={<LandingPage onSelectRole={setRole} />} />
       <Route path="/teacher" element={<TeacherPage avatarPreviewRef={avatarPreviewRef} boardPreviewRef={boardPreviewRef} isRunning={started} onStart={handleTeacherStart} onStop={handleTeacherStop} onROIChange={setRoi} initialROI={roi} secondaryROI={personRoi} sessionId={useSession(state => state.sessionId)} />} />
+      <Route path="/student/join" element={<StudentJoinPage />} />
       <Route path="/student" element={<StudentPage onLeave={handleStudentLeave} boardView={<BoardCanvas />} />} />
     </Routes>
   );
