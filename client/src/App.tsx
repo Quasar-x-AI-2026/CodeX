@@ -67,7 +67,11 @@ function RouterChildren() {
 
 
     try {
-      await startTracking((payload) => { sendAvatar(payload); try { try { console.debug && console.debug("FaceTracker: local payload", payload); } catch (e) { } controllers.updateControls(payload); } catch (e) { /* ignore */ } }, { previewContainer: avatarPreviewRef.current, onLandmarks: (lm) => { try { sendMessage({ type: 'avatar', payload: { landmarks: lm } }); } catch (e) { console.warn('failed sending landmarks', e); } }, onPhoto: (dataUrl, w, h) => { try { sendMessage({ type: 'avatar', payload: { photo: dataUrl, w, h } }); } catch (e) { console.warn('failed sending photo', e); } } });
+      await startTracking((payload) => { sendAvatar(payload); try { try { console.debug && console.debug("FaceTracker: local payload", payload); } catch (e) { } controllers.updateControls(payload); } catch (e) { /* ignore */ } }, {
+        previewContainer: avatarPreviewRef.current,
+        onLandmarks: (lm) => { try { sendMessage({ type: 'avatar', payload: { landmarks: lm } }); } catch (e) { console.warn('failed sending landmarks', e); } },
+        onPhoto: (dataUrl, w, h, lm) => { try { sendMessage({ type: 'avatar', payload: { photo: dataUrl, w, h, photoLandmarks: lm } }); } catch (e) { console.warn('failed sending photo', e); } }
+      });
     } catch (e) {
 
       try { if (boardCtrlRef.current) boardCtrlRef.current.stop(); } catch (ex) {
