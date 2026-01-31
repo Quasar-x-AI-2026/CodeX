@@ -1,3 +1,5 @@
+version: "1"
+
 services:
   # Backend Service (Bun)
   - type: web
@@ -6,6 +8,7 @@ services:
     plan: free
     rootDir: server
     buildCommand: bun install
+    startCommand: bun run start
     startCommand: bun run start
     autoDeploy: false
     envVars:
