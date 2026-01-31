@@ -1,5 +1,5 @@
 import { sendMessage } from "@/ws/socket";
-import { Answer, IceCandidateMessage, Offer, SignalingMessage, } from "./webRtcTypes";
+import { Answer, IceCandidateMessage, Offer, SignalingMessage, } from "./webrtctypes";
 
 
 const DEFAULT_STUN = [{ urls: "stun:stun.l.google.com:19302" }];

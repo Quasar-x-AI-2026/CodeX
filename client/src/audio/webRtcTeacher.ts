@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useMicrophone from "./useMicrophone";
-import { SignalingMessage } from "./webRtcTypes";
-import { TeacherAudioManager } from "./webRtc";
+import { SignalingMessage } from "./webrtctypes";
+import { TeacherAudioManager } from "./webrtc";
 
 type SendSignal = (msg: SignalingMessage) => void;
 
