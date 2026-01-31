@@ -3,7 +3,7 @@ services:
   - type: web
     name: codex-server
     env: bun
-    root: server
+    rootDirectory: server
     buildCommand: bun install
     startCommand: bun run start
     plan: free
@@ -17,7 +17,7 @@ services:
 staticSites:
   # Frontend Service (Static Site)
   - name: codex-client
-    root: client
+    rootDirectory: client
     buildCommand: npm install && npm run build
     publishDir: dist
     envVars:
