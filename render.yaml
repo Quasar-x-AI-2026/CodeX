@@ -14,9 +14,9 @@ services:
         value: 20
     autoDeploy: false
 
+staticSites:
   # Frontend Service (Static Site)
-  - type: static
-    name: codex-client
+  - name: codex-client
     root: client
     buildCommand: npm install && npm run build
     publishDir: dist
