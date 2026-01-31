@@ -1,5 +1,5 @@
 import { sendMessage } from "@/ws/socket";
-import { Answer, IceCandidateMessage, Offer, SignalingMessage,  } from "./webRtcTypes";
+import { Answer, IceCandidateMessage, Offer, SignalingMessage, } from "./webRtcTypes";
 
 
 const DEFAULT_STUN = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -71,6 +71,7 @@ function createPC(options: PeerOptions, targetSocketId?: string, recipient?: "te
   };
 
   pc.ontrack = (ev) => {
+    options.debug?.("createPC: ontrack fired", ev.streams.length, ev.track.kind, ev.track.id);
     const stream = ev.streams?.[0];
     if (stream && options.onRemoteTrack) {
       options.onRemoteTrack(stream, targetSocketId);
@@ -142,15 +143,27 @@ export class TeacherAudioManager {
     if (this.pcs.has(targetSocketId)) return;
 
     await this.ensureLocalStream();
+    this.log("addStudent: local stream tracks:", this.localStream?.getTracks().length);
 
     const { pc, addIceCandidate, flushQueue } = createPC(this.options, targetSocketId, "students");
 
-    
+
     if (this.localStream) {
-      for (const t of this.localStream.getAudioTracks()) pc.addTrack(t, this.localStream);
+      for (const t of this.localStream.getAudioTracks()) {
+        this.log("Adding audio track to PC:", t.id, t.label);
+        try {
+          // Use addTransceiver for better control and explicit direction
+          pc.addTransceiver(t, { direction: 'sendonly', streams: [this.localStream] });
+        } catch (e) {
+          this.log("addTransceiver failed, fallback to addTrack", e);
+          pc.addTrack(t, this.localStream);
+        }
+      }
+    } else {
+      this.log("WARNING: addStudent called but localStream is null/empty!");
     }
 
-    
+
     const caps = RTCRtpSender.getCapabilities?.("audio");
     if (caps && caps.codecs) {
       const opusCodecs = caps.codecs.filter((c) => c.mimeType.toLowerCase().includes("opus"));
@@ -159,8 +172,8 @@ export class TeacherAudioManager {
           const transceivers = pc.getTransceivers();
           for (const tr of transceivers) {
             if (tr.receiver && tr.receiver.track && tr.receiver.track.kind === "audio") continue;
-            
-            if (typeof (tr ).setCodecPreferences === "function") (tr ).setCodecPreferences(opusCodecs);
+
+            if (typeof (tr).setCodecPreferences === "function") (tr).setCodecPreferences(opusCodecs);
           }
         } catch (e) {
           this.log("setCodecPreferences failed", e);
@@ -249,16 +262,16 @@ export class TeacherAudioManager {
       });
     } catch (e) {
       this.log("ice restart failed", e);
-      
+
       setTimeout(() => this.attemptRestart(targetSocketId), 1000 * ent.restartAttempts);
     }
   }
 
   async handleWorkerOffer(fromSocketId: string, offer: RTCSessionDescriptionInit) {
-    
+
     const ent = this.pcs.get(fromSocketId);
     if (!ent) {
-      
+
       await this.addStudent(fromSocketId);
     }
     const e = this.pcs.get(fromSocketId);
@@ -304,7 +317,7 @@ export class StudentAudioManager {
   }
 
   async handleOffer(fromSocketId: string, offer: RTCSessionDescriptionInit) {
-    
+
     if (this.pcEntry) {
       try { this.pcEntry.pc.close(); } catch {
         this.options.debug?.("Failed to close existing pc");
@@ -327,25 +340,14 @@ export class StudentAudioManager {
       }
     };
 
-    
-    const caps = RTCRtpSender.getCapabilities?.("audio");
-    if (caps && caps.codecs) {
-      const opusCodecs = caps.codecs.filter((c) => c.mimeType.toLowerCase().includes("opus"));
-      if (opusCodecs.length > 0) {
-        try {
-          const transceiver = pc.addTransceiver("audio", { direction: "recvonly" });
-          if (typeof (transceiver ).setCodecPreferences === "function") (transceiver ).setCodecPreferences(opusCodecs);
-        } catch (e) {
-          console.log("setCodecPreferences failed", e);
-        }
-      } else {
-        pc.addTransceiver("audio", { direction: "recvonly" });
-      }
-    } else {
-      pc.addTransceiver("audio", { direction: "recvonly" });
-    }
 
-    
+    // Simplified: Rely on result of setRemoteDescription to create receivers for offered tracks.
+    // Manually adding transceivers here can cause conflicts or unmatched m-lines.
+
+    // We can set codec preferences on the *created* transceivers after SRD if needed, 
+    // but for now let's trust the negotiation.
+
+
 
     try {
       await pc.setRemoteDescription(offer);
@@ -404,69 +406,6 @@ export class StudentAudioManager {
   }
 }
 
-let peerConnection: RTCPeerConnection | null = null;
-let microphoneStream: MediaStream | null = null;
-const sessionId: string | null = null;
-const role: 'teacher' | 'student' | null = null;
-let negotiationAttempts = 0;
-const maxNegotiationAttempts = 3;
-const retryDelay = 1000; 
 
-function createPeerConnection() {
-    if (peerConnection) {
-        peerConnection.close(); 
-    }
-    peerConnection = new RTCPeerConnection({ iceServers: DEFAULT_STUN });
-
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            const msg: IceCandidateMessage = {
-                type: "ice",
-                candidate: event.candidate.toJSON(),
-                recipient: role === 'teacher' ? 'students' : 'teacher',
-            };
-            safeSend({ send: sendMessage, sessionId: sessionId ?? '' }, msg);
-          }
-    };
-
-    peerConnection.ontrack = (event) => {
-        
-    };
-}
-
-function reconnectWebSocket() {
-    
-    createPeerConnection();
-    if (role === 'teacher' && !microphoneStream) {
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            microphoneStream = stream;
-            if (microphoneStream) {
-                microphoneStream.getTracks().forEach(track => peerConnection?.addTrack(track, microphoneStream!));
-            }
-        });
-    }
-    
-    if (peerConnection) {
-        peerConnection.createOffer().then(offer => {
-        if (peerConnection) {
-            return peerConnection.setLocalDescription(offer);
-        }
-    }).then(() => {
-        
-        }).catch(handleNegotiationFailure);
-    }
-}
-
-function handleNegotiationFailure() {
-    if (negotiationAttempts < maxNegotiationAttempts) {
-        negotiationAttempts++;
-        setTimeout(() => reconnectWebSocket(), retryDelay);
-    } else {
-        console.error('Max negotiation attempts reached.');
-    }
-}
-
-
-createPeerConnection();
 
 export default { TeacherAudioManager, StudentAudioManager };

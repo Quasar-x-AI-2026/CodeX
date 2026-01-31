@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import BordROISelector, { NormalizedROI } from "../board/BordROISelector";
 import AvatarCanvas from "../avatar/AvatarCanvas";
 import useTeacherAudio from "../audio/webRtcTeacher";
@@ -61,10 +61,17 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
 
   const teacherAudio = useTeacherAudio(sendMessage, sessionId ?? undefined, (msg, ...args) => console.debug("teacher-audio", msg, ...args));
 
+  const peersRef = useRef<Set<string>>(new Set());
+
   // Audio controls
   const startAudio = async () => {
     try {
       await teacherAudio.start();
+      // Retry adding all known peers when audio starts
+      for (const peerId of peersRef.current) {
+        console.debug("Retrying connection to peer", peerId);
+        teacherAudio.addStudent(peerId).catch(e => console.warn("retry addStudent failed", e));
+      }
     } catch (e) {
       console.warn("start audio failed", e);
     }
@@ -77,6 +84,16 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
       console.warn("stop audio failed", e);
     }
   };
+
+  // Auto-start audio when session is running
+  useEffect(() => {
+    if (localRunning) {
+      startAudio().catch(console.warn);
+    } else {
+      stopAudio();
+    }
+  }, [localRunning]);
+
 
   useEffect(() => {
 
@@ -93,6 +110,10 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
       try {
         const from = msg?.from as string | undefined;
         if (from) {
+          peersRef.current.add(from);
+          // Only attempt to add if we think we can (e.g. mic started), 
+          // but addStudent will check ensureLocalStream anyway. 
+          // If it fails (no permission), we'll catch it.
           teacherAudio.addStudent(from).catch((e) => console.warn("addStudent failed", e));
         }
       } catch (e) {
@@ -100,10 +121,20 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
       }
     });
 
+    // Listen for peer-left to cleanup
+    const offPeerLeft = addHandler("peer-left", (msg: any) => {
+      const from = msg?.from as string | undefined;
+      if (from) {
+        peersRef.current.delete(from);
+        teacherAudio.removeStudent(from).catch(console.warn);
+      }
+    });
+
     return () => {
       try { offSdp(); } catch { };
       try { offIce(); } catch { };
       try { offPeerJoined(); } catch { };
+      try { offPeerLeft(); } catch { };
     };
 
   }, [sessionId]);
@@ -122,22 +153,16 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
           <div className="flex items-center gap-3">
             {loading && <div className="animate-spin h-5 w-5 border-2 border-gray-300 border-t-indigo-600 rounded-full" aria-hidden />}
 
-            {/* Audio share button */}
-            <button
-              onClick={() => startAudio()}
-              className="inline-flex items-center gap-2 bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
-              title="Share microphone with students"
-            >
-              Share Audio
-            </button>
-
-            <button
-              onClick={() => stopAudio()}
-              className="inline-flex items-center gap-2 bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
-              title="Stop sharing microphone"
-            >
-              Stop Audio
-            </button>
+            {/* Audio is now automatic */}
+            {localRunning && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                LIVE AUDIO
+              </div>
+            )}
 
             {localRunning ? (
               <button

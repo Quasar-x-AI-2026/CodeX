@@ -8,7 +8,7 @@ import useStudentAudio from "../audio/webRtcStudent";
 
 type Props = {
   onLeave: () => void;
-  boardView?: React.ReactNode; 
+  boardView?: React.ReactNode;
 };
 
 export default function StudentPage({ onLeave, boardView }: Props) {
@@ -32,8 +32,27 @@ export default function StudentPage({ onLeave, boardView }: Props) {
     }
 
     startSession(sid);
-    
+
   }, []);
+
+  // Fix: Attach the audio element to the hook
+  const { attachAudioElement, handleSignalingMessage } = studentAudio;
+
+  useEffect(() => {
+    if (audioElRef.current) {
+      attachAudioElement(audioElRef.current);
+    }
+  }, [attachAudioElement]);
+
+  // Fix: Handle incoming signaling messages
+  useEffect(() => {
+    const offSdp = addHandler("sdp", (msg) => handleSignalingMessage(msg as any));
+    const offIce = addHandler("ice", (msg) => handleSignalingMessage(msg as any));
+    return () => {
+      offSdp();
+      offIce();
+    };
+  }, [handleSignalingMessage]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -62,34 +81,15 @@ export default function StudentPage({ onLeave, boardView }: Props) {
               <AvatarCanvas width={260} height={260} meshScale={3.5} />
             </div>
 
-            {/* Audio element (hidden) + simple status UI */}
+            {/* Audio element (hidden) */}
             <div className="mt-4">
-              <audio ref={audioElRef} style={{ display: 'none' }}></audio>
-              <div className="text-sm text-gray-500 mt-2">Live audio from teacher will play automatically when available. If autoplay is blocked, click Play below.</div>
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => {
-                    const el = audioElRef.current;
-                    if (!el) return;
-                    const p = el.play();
-                    if (p && typeof (p as Promise<void>).then === 'function') {
-                      (p as Promise<void>).catch((err) => console.warn('play failed', err));
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700"
-                >
-                  Play
-                </button>
-                <button
-                  onClick={() => {
-                    const el = audioElRef.current;
-                    if (!el) return;
-                    try { el.pause(); } catch {}
-                  }}
-                  className="inline-flex items-center gap-2 bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-300"
-                >
-                  Pause
-                </button>
+              <audio ref={audioElRef} autoPlay playsInline controls style={{ position: 'absolute', opacity: 0.01, pointerEvents: 'none', height: '1px', width: '1px', overflow: 'hidden' }}></audio>
+              <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                Audio connected automatically
               </div>
             </div>
           </aside>

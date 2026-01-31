@@ -11,7 +11,7 @@ export type Offer = {
   type: "sdp";
   sdpType: "offer";
   sdp: RTCSessionDescriptionInit;
-  
+
   recipient?: "teacher" | "students" | "all";
   targetSocketId?: string;
 };
@@ -34,4 +34,4 @@ export type IceCandidateMessage = {
 };
 
 
-export type SignalingMessage = Offer | Answer | IceCandidateMessage;
+export type SignalingMessage = (Offer | Answer | IceCandidateMessage) & { from?: string };

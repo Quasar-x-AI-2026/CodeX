@@ -33,50 +33,51 @@ export default function useTeacherAudio(send: SendSignal, sessionId?: string, de
   const managerRef = useRef<TeacherAudioManager | null>(null);
   const [isActive, setIsActive] = useState(false);
 
-  
+
   useEffect(() => {
     const getLocalStream = async () => {
-      
+      // Logic fix: return stream explicitly from start() promise
       try {
-        await mic.start();
+        return await mic.start();
       } catch (e) {
-        
+        console.warn("getLocalStream failed", e);
+        throw e;
       }
-      
-      return mic.stream as MediaStream;
     };
 
     managerRef.current = new TeacherAudioManager({ send, sessionId: sessionId ?? "", getLocalStream, debug });
 
     return () => {
       if (managerRef.current) {
-        managerRef.current.close().catch(() => {});
+        managerRef.current.close().catch(() => { });
         managerRef.current = null;
       }
-      
+
     };
-    
+
   }, [send, sessionId]);
 
   const start = useCallback(async () => {
     try {
+      if (debug) debug("useTeacherAudio: parsing mic start");
       await mic.start();
+      if (debug) debug("useTeacherAudio: mic started successfully");
       setIsActive(true);
     } catch (e) {
-      
+      if (debug) debug("useTeacherAudio: mic start failed", e);
       setIsActive(false);
     }
-  }, [mic]);
+  }, [mic, debug]);
 
   const stop = useCallback(() => {
     try {
       mic.stop();
     } catch (e) {
-      
+
     }
     setIsActive(false);
-    
-    if (managerRef.current) managerRef.current.close().catch(() => {});
+
+    if (managerRef.current) managerRef.current.close().catch(() => { });
   }, [mic]);
 
   const addStudent = useCallback(async (targetSocketId: string) => {
@@ -84,7 +85,7 @@ export default function useTeacherAudio(send: SendSignal, sessionId?: string, de
     try {
       await managerRef.current.addStudent(targetSocketId);
     } catch (e) {
-      
+
       if (debug) debug("addStudent failed", e);
     }
   }, [debug]);
@@ -104,21 +105,23 @@ export default function useTeacherAudio(send: SendSignal, sessionId?: string, de
     try {
       if (msg.type === "sdp" && msg.sdpType === "answer") {
         // answers should target the teacher; allow fallback to msg.from
-        const fromId = (msg.targetSocketId as string) ?? ((msg as any).from as string | undefined);
+        // Critical Fix: Use msg.from to identify the student who sent the answer!
+        const fromId = (msg as any).from as string | undefined;
         if (!fromId) return;
         await managerRef.current.handleAnswer(fromId, msg.sdp);
       } else if (msg.type === "ice") {
-        const fromId = (msg.targetSocketId as string) ?? ((msg as any).from as string | undefined);
+        // Critical Fix: Use msg.from to identify the student sender!
+        const fromId = (msg as any).from as string | undefined;
         if (!fromId) return;
         await managerRef.current.handleIce(fromId, msg.candidate);
       } else if (msg.type === "sdp" && msg.sdpType === "offer") {
         // worker offers: if not targeted, fallback to msg.from
-        const fromId = (msg.targetSocketId as string) ?? ((msg as any).from as string | undefined);
+        const fromId = (msg as any).from as string | undefined;
         if (!fromId) return;
         await managerRef.current.handleWorkerOffer(fromId, msg.sdp);
       }
     } catch (e) {
-      
+
       if (debug) debug("handleSignalingMessage error", e);
     }
   }, [debug]);
