@@ -15,6 +15,8 @@ import {
   Settings,
   Users
 } from "lucide-react";
+import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
+import { FloatingControlBar, ControlBarZone } from "../components/layout/FloatingControlBar";
 
 type Props = {
   isRunning?: boolean;
@@ -37,6 +39,9 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
   // Local Media State
   const [micMuted, setMicMuted] = useState(false);
   const [videoMuted, setVideoMuted] = useState(false);
+
+  // UI State
+  const [showSettings, setShowSettings] = useState(false);
 
   // Peers
   const peersRef = useRef<Set<string>>(new Set());
@@ -125,146 +130,138 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
     };
   }, [sessionId]);
 
-  // Handle Mute Toggles (Simulated for this context as actual track mute depends on internal implementation of audio/video hooks)
+  // Handle Mute Toggles (Simulated)
   useEffect(() => {
-    // TODO: Propagate these changes to the actual WebRTC tracks if exposed by useTeacherAudio or FaceTracker
-    // For now, these are UI states that would trigger the underlying logic.
     console.log("Mic Muted:", micMuted, "Video Muted:", videoMuted);
   }, [micMuted, videoMuted]);
 
   const copySession = () => {
     if (sessionId) {
       navigator.clipboard.writeText(sessionId);
-      // Could add toast here
     }
   }
 
-  return (
-    <div className="h-screen w-screen bg-slate-950 flex flex-col text-white overflow-hidden">
-      {/* Navbar */}
-      <header className="h-16 border-b border-white/10 bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-6 z-20">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold">C</div>
-            <span className="font-semibold tracking-wide">CodeX Classroom</span>
-          </div>
-          {sessionId && (
-            <div className="flex items-center gap-3 ml-8 bg-white/5 rounded-full px-4 py-1.5 border border-white/10">
-              <span className="text-xs text-slate-400 uppercase tracking-wider font-medium">Join Code</span>
-              <code className="text-indigo-400 font-mono text-sm font-bold tracking-widest">{sessionId}</code>
-              <button onClick={copySession} className="text-slate-400 hover:text-white transition-colors">
-                <Copy className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-        </div>
+  // --- Layout & Actions ---
 
-        <div className="flex items-center gap-4">
-          <div className="bg-white/5 px-3 py-1.5 rounded-md flex items-center gap-2 text-sm text-slate-300">
-            <Users className="w-4 h-4" />
-            <span>{peerCount} Students</span>
-          </div>
-          {localRunning && (
-            <span className="flex items-center gap-2 px-3 py-1 bg-red-500/10 text-red-500 rounded-full text-xs font-bold border border-red-500/20 animate-pulse">
-              LIVE
-            </span>
-          )}
-        </div>
-      </header>
-
-      {/* Main Workspace */}
-      <main className="flex-1 p-6 grid grid-cols-12 gap-6 overflow-hidden">
-        {/* Board Area */}
-        <div className="col-span-8 bg-slate-900 rounded-2xl border border-white/10 overflow-hidden relative shadow-2xl flex flex-col">
-          <div className="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur px-3 py-1 rounded-md text-xs font-medium text-white/80">
-            Board Capture
-          </div>
-
-          <div className="flex-1 relative bg-black/40">
-            <BordROISelector value={initialROI} secondaryROI={secondaryROI} onChange={handleROIChange}>
-              <div className="w-full h-full flex items-center justify-center p-8" ref={boardPreviewRef}>
-                {!localRunning && <div className="text-slate-500">Preview will appear here when session starts...</div>}
-              </div>
-            </BordROISelector>
-          </div>
-        </div>
-
-        {/* Avatar & Chat/Settings Area */}
-        <div className="col-span-4 flex flex-col gap-6">
-          <div className="h-[360px] bg-slate-900 rounded-2xl border border-white/10 overflow-hidden relative shadow-lg">
-            <div className="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur px-3 py-1 rounded-md text-xs font-medium text-white/80">
-              Instructor Face
-            </div>
-            {/* Placeholder for Face Tracker Preview */}
-            <div className="w-full h-full flex items-center justify-center bg-black/20" ref={avatarPreviewRef}>
-              <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-indigo-500/30">
-                <AvatarCanvas width={192} height={192} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 bg-slate-900 rounded-2xl border border-white/10 p-6">
-            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Session Settings</h3>
-            {/* Add more settings here if needed */}
-            <div className="text-xs text-slate-500">
-              Adjust capture settings and manage student permissions here.
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Bottom Control Bar */}
-      <footer className="h-20 bg-slate-950/80 backdrop-blur border-t border-white/10 flex items-center justify-center gap-6 z-20">
-        {!localRunning ? (
-          <button
-            onClick={handleStart}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-full font-semibold shadow-lg shadow-indigo-500/25 transition-all transform hover:scale-105"
-          >
-            Start Class
-          </button>
-        ) : (
+  // Header overlay
+  const HeaderOverlay = (
+    <div className="flex items-center justify-between pointer-events-none">
+      <div className="pointer-events-auto flex items-center gap-3 bg-background/80 backdrop-blur-md px-4 py-2 rounded-full shadow-sm border border-border/50">
+        <div className="w-6 h-6 bg-primary rounded flex items-center justify-center font-bold text-primary-foreground text-xs">C</div>
+        <span className="font-semibold text-sm tracking-tight text-foreground">CodeX</span>
+        {sessionId && (
           <>
-            <ControlBtn
-              active={!micMuted}
-              onClick={() => setMicMuted(!micMuted)}
-              icon={!micMuted ? Mic : MicOff}
-              label={!micMuted ? "Mute" : "Unmute"}
-            />
-
-            <ControlBtn
-              active={!videoMuted}
-              onClick={() => setVideoMuted(!videoMuted)}
-              icon={!videoMuted ? Video : VideoOff}
-              label={!videoMuted ? "Stop Video" : "Start Video"}
-            />
-
-            <ControlBtn
-              active={false}
-              onClick={() => { }}
-              icon={MonitorUp}
-              label="Share Screen"
-            />
-
-            <ControlBtn
-              active={false}
-              onClick={() => { }}
-              icon={Settings}
-              label="Settings"
-            />
-
-            <div className="w-px h-10 bg-white/10 mx-2" />
-
-            <button
-              onClick={handleStop}
-              className="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-full font-semibold shadow-lg shadow-red-500/25 transition-all transform hover:scale-105 flex items-center gap-2"
-            >
-              <PhoneOff className="w-5 h-5" />
-              End Class
+            <div className="w-px h-4 bg-border mx-1" />
+            <button onClick={copySession} className="flex items-center gap-2 group">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium group-hover:text-foreground">Code</span>
+              <code className="text-primary font-mono text-xs font-bold tracking-widest bg-primary/10 px-1.5 py-0.5 rounded transition-colors group-hover:bg-primary/20">{sessionId}</code>
             </button>
           </>
         )}
-      </footer>
+      </div>
+
+      <div className="pointer-events-auto flex items-center gap-4">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur-md rounded-full shadow-sm border border-border/50 text-xs font-medium text-foreground">
+          <Users className="w-3.5 h-3.5 text-muted-foreground" />
+          <span>{peerCount}</span>
+        </div>
+        {localRunning && (
+          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/10 text-destructive rounded-full text-[10px] font-bold border border-destructive/20 animate-pulse tracking-wider uppercase">
+            Live
+          </span>
+        )}
+      </div>
     </div>
+  );
+
+  // Control Bar Actions
+  const actions = !localRunning ? [
+    {
+      label: "Start Class",
+      icon: <MonitorUp />, // Or a "Play" icon
+      onClick: handleStart,
+      variant: 'primary' as const,
+      isActive: true
+    }
+  ] : [
+    {
+      label: micMuted ? "Unmute" : "Mute",
+      icon: micMuted ? <MicOff /> : <Mic />,
+      onClick: () => setMicMuted(!micMuted),
+      isActive: !micMuted
+    },
+    {
+      label: videoMuted ? "Start Video" : "Stop Video",
+      icon: videoMuted ? <VideoOff /> : <Video />,
+      onClick: () => setVideoMuted(!videoMuted),
+      isActive: !videoMuted
+    },
+    {
+      label: "Share Screen",
+      icon: <MonitorUp />,
+      onClick: () => { },
+      isActive: false
+    },
+    {
+      label: "Settings",
+      icon: <Settings />,
+      onClick: () => setShowSettings(!showSettings),
+      isActive: showSettings
+    },
+    {
+      label: "End Class",
+      icon: <PhoneOff />,
+      onClick: handleStop,
+      variant: 'destructive' as const,
+      isActive: true
+    }
+  ];
+
+  return (
+    <WorkspaceLayout
+      header={HeaderOverlay}
+      overlay={
+        <ControlBarZone>
+          <FloatingControlBar actions={actions} />
+        </ControlBarZone>
+      }
+    >
+      {/* Full Screen Board Area */}
+      <div className="absolute inset-0 bg-secondary/20">
+        <BordROISelector value={initialROI} secondaryROI={secondaryROI} onChange={handleROIChange}>
+          <div className="w-full h-full flex items-center justify-center p-8 text-center" ref={boardPreviewRef}>
+            {!localRunning && (
+              <div className="max-w-md space-y-4">
+                <h2 className="text-2xl font-semibold tracking-tight text-foreground">Ready to start?</h2>
+                <p className="text-muted-foreground">Adjust the capture area above, then click Start Class.</p>
+              </div>
+            )}
+          </div>
+        </BordROISelector>
+      </div>
+
+      {/* PIP Avatar (Self View) */}
+      <div className="absolute top-20 right-4 w-48 aspect-[4/3] bg-black rounded-lg overflow-hidden shadow-lg border border-border ring-1 ring-black/5 z-20 group">
+        {/* Draggable handle concept or just fixed for now */}
+        <div className="w-full h-full relative">
+          <div className="absolute inset-0 flex items-center justify-center bg-muted/50" ref={avatarPreviewRef}>
+            <AvatarCanvas width={192} height={144} />
+          </div>
+          {/* Overlay label */}
+          <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/50 backdrop-blur rounded text-[10px] text-white font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+            You
+          </div>
+        </div>
+      </div>
+
+      {/* Board Capture Label (Floating top left, maybe redundant with header but useful context) */}
+      <div className="absolute top-20 left-4 pointer-events-none">
+        <div className="px-2 py-1 bg-background/50 backdrop-blur text-[10px] font-medium text-muted-foreground rounded border border-border/20">
+          Board Capture Area
+        </div>
+      </div>
+
+    </WorkspaceLayout>
   );
 }
 
