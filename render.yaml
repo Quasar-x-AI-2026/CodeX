@@ -1,22 +1,28 @@
 version: "1"
 
 services:
-  # Backend (Bun)
+  # Backend (Bun app, Node runtime)
   - type: web
     name: codex-server
-    env: bun
+    env: node
     plan: free
     rootDir: server
-    buildCommand: bun install
-    startCommand: bun run start
-    autoDeploy: false
+    buildCommand: |
+      curl -fsSL https://bun.sh/install | bash
+      export BUN_INSTALL="$HOME/.bun"
+      export PATH="$BUN_INSTALL/bin:$PATH"
+      bun install
+    startCommand: |
+      export BUN_INSTALL="$HOME/.bun"
+      export PATH="$BUN_INSTALL/bin:$PATH"
+      bun run start
     envVars:
       - key: PORT
         value: 10000
       - key: NODE_VERSION
         value: 20
 
-  # Frontend (Vite served as Web)
+  # Frontend (Web service)
   - type: web
     name: codex-client
     env: node
