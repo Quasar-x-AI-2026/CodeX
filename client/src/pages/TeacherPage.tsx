@@ -154,7 +154,11 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
             <div className="w-px h-4 bg-border mx-1" />
             <button onClick={copySession} className="flex items-center gap-2 group">
               <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium group-hover:text-foreground">Code</span>
-              <code className="text-primary font-mono text-xs font-bold tracking-widest bg-primary/10 px-1.5 py-0.5 rounded transition-colors group-hover:bg-primary/20">{sessionId}</code>
+              <code className="flex items-center gap-2 text-primary font-mono text-xs font-bold tracking-widest bg-primary/10 px-1.5 py-0.5 rounded transition-colors group-hover:bg-primary/20">{sessionId}<Copy className="w-3.5 h-3.5 text-muted-foreground" onClick={
+                () => {
+                  navigator.clipboard.writeText(sessionId ?? "");
+                }
+              } /></code>
             </button>
           </>
         )}
