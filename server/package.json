@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --hot server.ts"
+    "dev": "bun --hot server.ts",
+    "start": "bun server.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.1",

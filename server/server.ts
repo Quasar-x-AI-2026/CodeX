@@ -71,6 +71,17 @@ export function startServer(port = PORT) {
     console.log(`Server listening on http://localhost:${port}`);
   });
 
+  const PING_INTERVAL = 14 * 60 * 1000;
+  if (process.env.RENDER_EXTERNAL_URL) {
+    const pingUrl = `${process.env.RENDER_EXTERNAL_URL}/health`;
+    console.log(`Setting up autoping for ${pingUrl}`);
+    setInterval(() => {
+      fetch(pingUrl)
+        .then((res) => console.log(`Autoping: ${res.status} ${res.statusText}`))
+        .catch((err) => console.error(`Autoping failed:`, err));
+    }, PING_INTERVAL);
+  }
+
   return server;
 }
 
