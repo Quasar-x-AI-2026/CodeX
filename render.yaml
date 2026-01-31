@@ -1,15 +1,23 @@
 services:
+  # Monorepo Service (Server + Client Static)
   - type: web
     name: codex-app
-    env: bun
+    env: node
     rootDir: . 
+    
+    # Build Command: 
+    # Render's Node environment with BUN_VERSION env var will have 'bun' available.
     buildCommand: bun install && bun run build
+    
+    # Start Command:
     startCommand: bun run start
     
     plan: free
     envVars:
       - key: PORT
         value: 10000
+      - key: BUN_VERSION
+        value: 1.1.0
       - key: NODE_VERSION
         value: 20
     autoDeploy: false
