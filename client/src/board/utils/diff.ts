@@ -1,5 +1,6 @@
 import "@tensorflow/tfjs";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
+export type ClassifiedDiffBox = DiffBox & { class?: string };
 
 export type DiffBox = { x: number; y: number; width: number; height: number };
 
@@ -156,8 +157,23 @@ export function calculateIoU(a: DiffBox, b: DiffBox): number {
   return intersectionArea / unionArea;
 }
 
-function boxesOverlap(a: DiffBox, b: DiffBox) {
+export function boxesOverlap(a: DiffBox, b: DiffBox) {
   return !(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y);
+}
+
+export function getIntersectionRatio(a: DiffBox, container: DiffBox): number {
+  const x1 = Math.max(a.x, container.x);
+  const y1 = Math.max(a.y, container.y);
+  const x2 = Math.min(a.x + a.width, container.x + container.width);
+  const y2 = Math.min(a.y + a.height, container.y + container.height);
+
+  const w = Math.max(0, x2 - x1);
+  const h = Math.max(0, y2 - y1);
+  const intersection = w * h;
+  const areaA = a.width * a.height;
+
+  if (areaA === 0) return 0;
+  return intersection / areaA;
 }
 
 function mergeBoxes(a: DiffBox, b: DiffBox, maxW: number, maxH: number): DiffBox {
@@ -181,7 +197,7 @@ export default diffFrames;
 
 let modelPromise: Promise<cocoSsd.ObjectDetection> | null = null;
 
-export async function detectBoardROI(imageData: ImageData): Promise<DiffBox | null> {
+export async function detectBoardROI(imageData: ImageData): Promise<{ board: DiffBox | null, person: DiffBox | null } | null> {
   if (!modelPromise) {
     modelPromise = cocoSsd.load();
   }
@@ -200,39 +216,34 @@ export async function detectBoardROI(imageData: ImageData): Promise<DiffBox | nu
     if (predictions.length > 0) {
       console.log("Board detection candidates:", predictions);
 
-      // Filter for likely classes if we want to be specific, or just take largest.
-      // Common classes for a board: 'tv', 'laptop', 'book', 'refrigerator' (whiteboard?), or just generic objects.
-      // For now, largest area is the best heuristic for a "main subject".
-
       const BOARD_CLASSES = ['tv', 'monitor', 'laptop', 'refrigerator', 'microwave', 'oven', 'book', 'clock'];
 
-      const sorted = predictions.sort((a, b) => {
-        const isBoardA = BOARD_CLASSES.includes(a.class) ? 1 : 0;
-        const isBoardB = BOARD_CLASSES.includes(b.class) ? 1 : 0;
+      const boardCandidates = predictions.filter(p => !['person'].includes(p.class));
+      const personCandidates = predictions.filter(p => p.class === 'person');
 
-        if (isBoardA !== isBoardB) return isBoardB - isBoardA; // Prioritize board classes
+      let board: DiffBox | null = null;
+      let person: DiffBox | null = null;
 
-        const areaA = a.bbox[2] * a.bbox[3];
-        const areaB = b.bbox[2] * b.bbox[3];
-        return areaB - areaA; // Then largest
-      });
+      if (boardCandidates.length > 0) {
+        // Prioritize known board classes, then area
+        boardCandidates.sort((a, b) => {
+          const isBoardA = BOARD_CLASSES.includes(a.class) ? 1 : 0;
+          const isBoardB = BOARD_CLASSES.includes(b.class) ? 1 : 0;
+          if (isBoardA !== isBoardB) return isBoardB - isBoardA;
+          return (b.bbox[2] * b.bbox[3]) - (a.bbox[2] * a.bbox[3]);
+        });
+        const best = boardCandidates[0];
+        board = { x: best.bbox[0], y: best.bbox[1], width: best.bbox[2], height: best.bbox[3] };
+      }
 
-      const best = sorted[0];
+      if (personCandidates.length > 0) {
+        // Largest person
+        personCandidates.sort((a, b) => (b.bbox[2] * b.bbox[3]) - (a.bbox[2] * a.bbox[3]));
+        const best = personCandidates[0];
+        person = { x: best.bbox[0], y: best.bbox[1], width: best.bbox[2], height: best.bbox[3] };
+      }
 
-      // If the best match is "person" and there are other detections, maybe we shouldn't just assume person is the board.
-      // But if there is ONLY a person, maybe the user wants to see the person?
-      // The requirement is "identify that, yes this is a board".
-
-      // If we found a board class, great. If not, and we found a person, be careful.
-      // Let's stick to area for non-board classes, but deprioritize people if possible?
-      // Actually, let's just use the prioritization logic above. If no board class is found, it will pick the largest object.
-
-      return {
-        x: best.bbox[0],
-        y: best.bbox[1],
-        width: best.bbox[2],
-        height: best.bbox[3],
-      };
+      return { board, person };
     }
   } catch (e) {
     console.warn("detectBoardROI failed", e);

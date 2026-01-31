@@ -22,6 +22,7 @@ function RouterChildren() {
   const navigate = useNavigate();
 
   const [roi, setRoi] = useState<NormalizedROI | null>(null);
+  const [personRoi, setPersonRoi] = useState<NormalizedROI | null>(null);
   const isNextUpdateAutoRef = useRef(false);
   const boardCtrlRef = useRef<{ stop: () => void; setROI: (r: NormalizedROI | null, fromUser?: boolean) => void; isRunning: () => boolean } | null>(null);
   const avatarPreviewRef = useRef<HTMLDivElement | null>(null);
@@ -47,6 +48,10 @@ function RouterChildren() {
       onROIChange: (r) => {
         isNextUpdateAutoRef.current = true;
         setRoi(r);
+      },
+      onROIsChange: (rois) => {
+        if (rois.person) setPersonRoi(rois.person);
+        else setPersonRoi(null);
       },
       onError: (e) => console.warn('board capture error', e),
       previewContainer: boardPreviewRef.current ?? null,
@@ -114,7 +119,7 @@ function RouterChildren() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage onSelectRole={setRole} />} />
-      <Route path="/teacher" element={<TeacherPage avatarPreviewRef={avatarPreviewRef} boardPreviewRef={boardPreviewRef} isRunning={started} onStart={handleTeacherStart} onStop={handleTeacherStop} onROIChange={setRoi} initialROI={roi} sessionId={useSession(state => state.sessionId)} />} />
+      <Route path="/teacher" element={<TeacherPage avatarPreviewRef={avatarPreviewRef} boardPreviewRef={boardPreviewRef} isRunning={started} onStart={handleTeacherStart} onStop={handleTeacherStop} onROIChange={setRoi} initialROI={roi} secondaryROI={personRoi} sessionId={useSession(state => state.sessionId)} />} />
       <Route path="/student" element={<StudentPage onLeave={handleStudentLeave} boardView={<BoardCanvas />} />} />
     </Routes>
   );

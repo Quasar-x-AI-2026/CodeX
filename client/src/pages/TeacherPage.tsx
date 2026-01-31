@@ -10,15 +10,16 @@ type Props = {
   onStop: () => Promise<void> | void;
   onROIChange?: (roi: NormalizedROI | null) => void;
   initialROI?: NormalizedROI | null;
-  
+  secondaryROI?: NormalizedROI | null;
+
   avatarPreviewRef?: React.RefObject<HTMLDivElement | null>;
-  
+
   boardPreviewRef?: React.RefObject<HTMLDivElement | null>;
-  
+
   sessionId?: string | null;
 };
 
-export default function TeacherPage({ isRunning = false, onStart, onStop, onROIChange, initialROI = null, avatarPreviewRef, boardPreviewRef, sessionId = null }: Props) {
+export default function TeacherPage({ isRunning = false, onStart, onStop, onROIChange, initialROI = null, secondaryROI, avatarPreviewRef, boardPreviewRef, sessionId = null }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localRunning, setLocalRunning] = useState(isRunning);
@@ -57,7 +58,7 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
     if (onROIChange) onROIChange(r);
   }, [onROIChange]);
 
-  
+
   const teacherAudio = useTeacherAudio(sendMessage, sessionId ?? undefined, (msg, ...args) => console.debug("teacher-audio", msg, ...args));
 
   // Audio controls
@@ -78,16 +79,16 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
   };
 
   useEffect(() => {
-    
+
     const offSdp = addHandler("sdp", (msg: any) => {
-      teacherAudio.handleSignalingMessage(msg );
+      teacherAudio.handleSignalingMessage(msg);
     });
 
     const offIce = addHandler("ice", (msg: any) => {
-      teacherAudio.handleSignalingMessage(msg );
+      teacherAudio.handleSignalingMessage(msg);
     });
 
-    
+
     const offPeerJoined = addHandler("peer-joined", (msg: any) => {
       try {
         const from = msg?.from as string | undefined;
@@ -100,11 +101,11 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
     });
 
     return () => {
-      try { offSdp(); } catch {};
-      try { offIce(); } catch {};
-      try { offPeerJoined(); } catch {};
+      try { offSdp(); } catch { };
+      try { offIce(); } catch { };
+      try { offPeerJoined(); } catch { };
     };
-    
+
   }, [sessionId]);
 
   return (
@@ -164,8 +165,8 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
           <section className="bg-white border rounded-lg p-4">
             <h3 className="font-medium mb-3">Board Preview</h3>
             <div style={{ height: 360 }} className="relative bg-gray-50 border rounded">
-              {}
-              <BordROISelector value={initialROI} onChange={handleROIChange}>
+              { }
+              <BordROISelector value={initialROI} secondaryROI={secondaryROI} onChange={handleROIChange}>
                 <div style={{ width: "100%", height: "360px", display: "flex", alignItems: "center", justifyContent: "center", position: 'relative' }} ref={boardPreviewRef}>
                   <div className="text-sm text-gray-400">Board area preview (select ROI)</div>
                 </div>
@@ -174,10 +175,10 @@ export default function TeacherPage({ isRunning = false, onStart, onStop, onROIC
           </section>
 
           <section className="bg-white border rounded-lg p-4">
-              <h3 className="font-medium mb-3">Avatar Preview</h3>
+            <h3 className="font-medium mb-3">Avatar Preview</h3>
             <div style={{ height: 360 }} className="relative bg-gray-50 border rounded flex items-center justify-center">
               <div style={{ width: 280, height: 280, position: 'relative' }} ref={avatarPreviewRef}>
-                {}
+                { }
                 <div style={{ position: 'absolute', right: 8, bottom: 8, width: 96, height: 96, borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
                   <AvatarCanvas width={96} height={96} />
                 </div>

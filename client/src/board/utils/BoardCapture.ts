@@ -1,4 +1,4 @@
-import diffFrames, { DiffOptions, DiffBox, detectBoardROI, calculateIoU } from "./diff";
+import diffFrames, { DiffOptions, DiffBox, detectBoardROI, calculateIoU, getIntersectionRatio, boxesOverlap } from "./diff";
 
 export type ROI = { x: number; y: number; w: number; h: number };
 
@@ -15,7 +15,8 @@ export type StartCaptureOptions = {
 
   roi?: ROI | { x: number; y: number; w: number; h: number };
   onPatch: (patch: PatchPayload) => void;
-  onROIChange?: (roi: ROI) => void; // Callback to notify UI of auto-updates
+  onROIChange?: (roi: ROI) => void;
+  onROIsChange?: (rois: { board: ROI | null, person: ROI | null }) => void; // New callback
   onError?: (err: Error) => void;
 
   downscaleMax?: number;
@@ -130,6 +131,16 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
 
   let lastCaptureTime = 0;
   let lastDetectionTime = 0;
+  let personRoi: ROI | null = null;
+  let lastPersonDetectedTime = 0; // For debouncing exit
+  let stableBoard: ImageData | null = null; // Buffer for clean background
+  let boardHistory: { time: number, data: ImageData }[] = []; // Circular buffer for time-travel
+  let lastHistoryTime = 0;
+  let lastRepairTime = 0;
+
+  // Speed up check to catch person faster: 200ms
+  const detectionInterval = 200;
+  const repairInterval = 200;
   const interval = 1000 / fps;
 
   async function captureFrame() {
@@ -191,7 +202,7 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
 
 
     // Auto-detection logic (Periodic, full-frame, stabilized)
-    if (!manualRoiSelected && now - lastDetectionTime > 2000) {
+    if (!manualRoiSelected && now - lastDetectionTime > detectionInterval) {
       lastDetectionTime = now;
 
       // We need to capture the *full* frame for detection, regardless of current ROI.
@@ -209,34 +220,72 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
         detCtx.drawImage(videoEl, 0, 0, detW, detH);
         const detImg = detCtx.getImageData(0, 0, detW, detH);
 
-        detectBoardROI(detImg).then((box) => {
-          if (!box || manualRoiSelected) return;
+        detectBoardROI(detImg).then((result) => {
+          if (!result || manualRoiSelected) return;
 
-          // Convert box back to normalized coordinates
-          const normX = box.x / detW;
-          const normY = box.y / detH;
-          const normW = box.width / detW;
-          const normH = box.height / detH;
+          let newRoi: ROI | null = null;
+          let newPersonRoi: ROI | null = null;
 
-          const newRoi: ROI = { x: normX, y: normY, w: normW, h: normH };
+          if (result.board) {
+            newRoi = {
+              x: result.board.x / detW,
+              y: result.board.y / detH,
+              w: result.board.width / detW,
+              h: result.board.height / detH
+            };
+          }
 
-          // Stabilization: Check overlap with current ROI
-          if (roi) {
-            const currentAsBox: DiffBox = { x: roi.x, y: roi.y, width: roi.w, height: roi.h };
-            const newAsBox: DiffBox = { x: newRoi.x, y: newRoi.y, width: newRoi.w, height: newRoi.h };
-            const iou = calculateIoU(currentAsBox, newAsBox);
-
-            // If highly overlapping (> 85%), assume it's the same object and don't jitter.
-            if (iou > 0.85) {
-              console.log("ROI stabilized, skipping update (IoU: " + iou.toFixed(2) + ")");
-              return;
+          if (result.person) {
+            newPersonRoi = {
+              x: result.person.x / detW,
+              y: result.person.y / detH,
+              w: result.person.width / detW,
+              h: result.person.height / detH
+            };
+            // Only update local tracker if the person is significant (e.g. head/face visible in top half)
+            if (newPersonRoi.y < 0.5) {
+              personRoi = newPersonRoi; // Update local tracker
+              lastPersonDetectedTime = performance.now();
+            } else {
+              // If detected but low confidence/position, treat as "missing" for now,
+              // but let debounce handle the clearing.
+            }
+          } else {
+            // Person NOT detected in this frame.
+            // Debounce check: Keep personRoi active for 1 second to handle flicker.
+            if (personRoi && (performance.now() - lastPersonDetectedTime < 1000)) {
+              // Keep it active
+            } else {
+              personRoi = null;
             }
           }
 
-          console.log("Updating ROI from auto-detection", newRoi);
-          roi = newRoi;
-          if (opts.onROIChange) {
-            opts.onROIChange(newRoi);
+          if (newRoi) {
+            // Stabilization: Check overlap with current ROI
+            if (roi) {
+              const currentAsBox: DiffBox = { x: roi.x, y: roi.y, width: roi.w, height: roi.h };
+              const newAsBox: DiffBox = { x: newRoi.x, y: newRoi.y, width: newRoi.w, height: newRoi.h };
+              const iou = calculateIoU(currentAsBox, newAsBox);
+
+              // If highly overlapping (> 85%), assume it's the same object and don't jitter.
+              if (iou <= 0.85) {
+                console.log("Updating ROI from auto-detection", newRoi);
+                roi = newRoi;
+                if (opts.onROIChange) opts.onROIChange(newRoi);
+              } else {
+                console.log("ROI stabilized (IoU: " + iou.toFixed(2) + ")");
+              }
+            } else {
+              // First detection
+              console.log("Initial ROI detection", newRoi);
+              roi = newRoi;
+              if (opts.onROIChange) opts.onROIChange(newRoi);
+            }
+          }
+
+          // Notify about both ROIs regardless of stability update
+          if (opts.onROIsChange) {
+            opts.onROIsChange({ board: roi, person: newPersonRoi });
           }
         });
       }
@@ -258,8 +307,86 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
       prevImage.height === img.height
     ) {
       const boxes = diffFrames(prevImage, img, diffOptions ?? undefined);
+
+      const approvedBoxes: DiffBox[] = [];
+
+      // Convert Person ROI to current frame coords for filtering
+      let personBox: DiffBox | null = null;
+      if (personRoi) {
+        const px = Math.round(personRoi.x * dw);
+        const py = Math.round(personRoi.y * dh);
+        const pw = Math.round(personRoi.w * dw);
+        const ph = Math.round(personRoi.h * dh);
+
+        // Expand Person Box for better coverage (padding)
+        const padding = Math.round(pw * 0.15); // Add 15% padding
+        const expandedX = Math.max(0, px - padding);
+        const expandedY = Math.max(0, py - padding);
+        const expandedW = Math.min(dw - expandedX, pw + (padding * 2));
+        const expandedH = Math.min(dh - expandedY, ph + (padding * 2));
+
+        personBox = {
+          x: expandedX,
+          y: expandedY,
+          width: expandedW,
+          height: expandedH
+        };
+
+        // REPAIR LOGIC: If we have a stable board, send a "Repair Patch" to overwrite the person
+        // with the clean background.
+        if (stableBoard && now - lastRepairTime > repairInterval) {
+          lastRepairTime = now;
+
+          // Create repair patch from stableBoard
+          const repairCanvas = document.createElement("canvas");
+          repairCanvas.width = personBox.width;
+          repairCanvas.height = personBox.height;
+          const rCtx = repairCanvas.getContext("2d");
+          if (rCtx) {
+            // Draw the relevant slice of stableBoard
+            rCtx.putImageData(stableBoard, 0, 0, personBox.x, personBox.y, personBox.width, personBox.height);
+
+            const dataUrl = repairCanvas.toDataURL("image/png");
+            const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+
+            try {
+              // Send this synthetic patch to the student
+              onPatch({ x: personBox.x, y: personBox.y, w: personBox.width, h: personBox.height, image: base64 });
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+      } else {
+        // No person detected? Update stableBoard with current clean frame.
+        // Only update if we are SURE there is no person (personRoi is null, which implies debounce passed).
+        if (!personRoi) {
+          stableBoard = new ImageData(
+            new Uint8ClampedArray(img.data),
+            img.width,
+            img.height
+          );
+        }
+      }
+
       if (boxes.length > 0) {
         for (const b of boxes) {
+
+          // Person Filtering Logic (Strict)
+          let overlapsPerson = false;
+          // Use the expanded personBox directly. 
+          // If ANY part of the update touches the person, block it.
+          if (personBox && boxesOverlap(b, personBox)) {
+            overlapsPerson = true;
+          }
+
+          if (overlapsPerson) {
+            // This change coincides with the person. Ignore it.
+            continue;
+          }
+
+          approvedBoxes.push(b);
+
           const scaleX = sw / dw;
           const scaleY = sh / dh;
           const bx = Math.round(sx + b.x * scaleX);
@@ -290,13 +417,55 @@ export async function startBoardCapture(opts: StartCaptureOptions) {
           }
         }
       }
-    }
 
-    prevImage = new ImageData(
-      new Uint8ClampedArray(img.data),
-      img.width,
-      img.height,
-    );
+      // Update prevImage ONLY for approved boxes
+      // This effectively persists the "old" pixels where the person is standing (ghosting them out)
+      const prevData = prevImage.data;
+      const currData = img.data;
+      const w = dw;
+
+      for (const b of approvedBoxes) {
+        // Copy box pixels from currData to prevData
+        for (let y = b.y; y < b.y + b.height; y++) {
+          const rowStart = (y * w + b.x) * 4;
+          const rowEnd = rowStart + (b.width * 4);
+          // Array copy for speed
+          for (let idx = rowStart; idx < rowEnd; idx++) {
+            prevData[idx] = currData[idx];
+          }
+        }
+      }
+      // If we didn't update prevImage for the person, it keeps the old pixels (board).
+      // However, if the old pixels were "Person", we are stuck.
+      // So, if we have a stableBoard, we should force-write stableBoard pixels into prevImage for the personBox area.
+      // This ensures the local diff logic compares "Next Frame (Person)" vs "Prev Frame (Clean Board)".
+      if (personBox && stableBoard) {
+        const sData = stableBoard.data;
+        const pData = prevData;
+
+        // Only overwrite the area covered by personBox
+        const startY = Math.max(0, personBox.y);
+        const endY = Math.min(dh, personBox.y + personBox.height);
+        const startX = Math.max(0, personBox.x);
+        const endX = Math.min(dw, personBox.x + personBox.width);
+
+        for (let y = startY; y < endY; y++) {
+          const rowStart = (y * w + startX) * 4;
+          const rowEnd = rowStart + ((endX - startX) * 4);
+          for (let idx = rowStart; idx < rowEnd; idx++) {
+            pData[idx] = sData[idx];
+          }
+        }
+      }
+
+    } else {
+      // First frame or resize, full update
+      prevImage = new ImageData(
+        new Uint8ClampedArray(img.data),
+        img.width,
+        img.height,
+      );
+    }
 
     rafId = requestAnimationFrame(captureFrame);
   }

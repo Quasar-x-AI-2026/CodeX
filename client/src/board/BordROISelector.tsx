@@ -5,6 +5,7 @@ export type NormalizedROI = { x: number; y: number; w: number; h: number };
 type Props = {
   children: React.ReactNode;
   value?: NormalizedROI | null;
+  secondaryROI?: NormalizedROI | null; // For person detection
   onChange?: (roi: NormalizedROI | null) => void;
 };
 
@@ -13,7 +14,7 @@ type Handle = "nw" | "ne" | "sw" | "se" | null;
 
 const MIN_SIZE = 0.03;
 
-export default function BoardROISelector({ children, value, onChange }: Props) {
+export default function BoardROISelector({ children, value, secondaryROI, onChange }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [roi, setRoi] = useState<NormalizedROI | null>(value ?? null);
 
@@ -99,6 +100,13 @@ export default function BoardROISelector({ children, value, onChange }: Props) {
               style={handleStyle(h as Handle)}
             />
           ))}
+          <div style={{ position: 'absolute', top: -20, left: 0, background: '#007bff', color: 'white', fontSize: 10, padding: '2px 4px', borderRadius: 2 }}>Board</div>
+        </div>
+      )}
+
+      {secondaryROI && (
+        <div style={{ ...boxStyle(secondaryROI), border: '2px dashed #orange', borderColor: '#ff9800', background: 'rgba(255, 152, 0, 0.1)' }}>
+          <div style={{ position: 'absolute', top: -20, left: 0, background: '#ff9800', color: 'white', fontSize: 10, padding: '2px 4px', borderRadius: 2 }}>Person</div>
         </div>
       )}
 
